@@ -115,7 +115,7 @@ export function AddEvent() {
           `- \`${filePath}\``,
           '- обновлён `index.json`',
           '',
-          '_Создано через Codex CMS._',
+          '_Создано через CMS Книжного клуба._',
         ].join('\n'),
         files,
       })

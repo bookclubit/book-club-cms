@@ -52,7 +52,7 @@ export function AddSpeaker() {
           `- аватарка \`media/speakers/${speakerId}.webp\` (WebP, квадрат)`,
           '- обновлён `index.json`',
           '',
-          '_Создано через Codex CMS._',
+          '_Создано через CMS Книжного клуба._',
         ].join('\n'),
         files,
       })

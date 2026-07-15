@@ -36,7 +36,7 @@ export function Login() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
-      <h1 className="mb-1 text-xl font-semibold tracking-tight">Codex CMS</h1>
+      <h1 className="mb-1 text-xl font-semibold tracking-tight">CMS Книжного клуба</h1>
       <p className="mb-6 text-sm text-muted">
         Админка книжного клуба. Контент публикуется pull request-ами в{' '}
         <span className="font-medium text-ink">bookclubit/book-club-data</span>.

@@ -37,11 +37,11 @@ const result = await openContentPR(gh, {
   body: [
     'Единый реестр контента репозитория: книги (+папки, id, главы), события и спикеры.',
     '',
-    '**Зачем:** `raw.githubusercontent.com` не листает директории, поэтому miniapp и бот держали списки контента захардкоженными (`BOOK_IDS`, `CHAPTER_SLUGS`, `EVENT_FILES`, `SPEAKERS` в `api.ts`). Теперь потребители читают `index.json`, а [Codex CMS](https://github.com/bookclubit/book-club-cms) обновляет его автоматически в каждом PR с контентом.',
+    '**Зачем:** `raw.githubusercontent.com` не листает директории, поэтому miniapp и бот держали списки контента захардкоженными (`BOOK_IDS`, `CHAPTER_SLUGS`, `EVENT_FILES`, `SPEAKERS` в `api.ts`). Теперь потребители читают `index.json`, а [CMS Книжного клуба](https://github.com/bookclubit/book-club-cms) обновляет его автоматически в каждом PR с контентом.',
     '',
     'Поле `active_book` — книга, которую клуб читает сейчас (для бота карточек).',
     '',
-    '_Создано через Codex CMS._',
+    '_Создано через CMS Книжного клуба._',
   ].join('\n'),
   files: [{ path: 'index.json', content: toJSON(index) }],
 })

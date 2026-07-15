@@ -119,7 +119,7 @@ export function AddBook() {
             .map((a) => `- аватар автора \`media/authors/${slugify(a.name)}.webp\``),
           '- обновлён `index.json`',
           '',
-          '_Создано через Codex CMS._',
+          '_Создано через CMS Книжного клуба._',
         ]
           .filter((line): line is string => line !== null)
           .join('\n'),

@@ -108,7 +108,7 @@ export function AddTopic() {
           `- тема зарегистрирована в \`${dir}/chapter.json\``,
           speakers.length > 0 ? `- спикеры: ${speakers.join(', ')}` : null,
           '',
-          '_Создано через Codex CMS._',
+          '_Создано через CMS Книжного клуба._',
         ]
           .filter((line): line is string => line !== null)
           .join('\n'),

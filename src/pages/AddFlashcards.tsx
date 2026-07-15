@@ -98,7 +98,7 @@ export function AddFlashcards() {
           '',
           `- \`books/${book.folder}/flashcards.json\` — теперь ${existing.length + newCards.length} карточек`,
           '',
-          '_Создано через Codex CMS._',
+          '_Создано через CMS Книжного клуба._',
         ].join('\n'),
         files: [
           {

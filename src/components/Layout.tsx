@@ -18,7 +18,7 @@ export function Layout() {
     <div className="mx-auto max-w-3xl px-4 pb-24">
       <header className="mb-8 flex items-center justify-between pt-8">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Codex CMS</h1>
+          <h1 className="text-lg font-semibold tracking-tight">CMS Книжного клуба</h1>
           <p className="text-sm text-muted">
             Контент клуба → pull request в{' '}
             <a
