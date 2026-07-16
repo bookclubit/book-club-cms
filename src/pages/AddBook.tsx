@@ -13,7 +13,7 @@ import { AVATAR_OPTS, COVER_OPTS } from '../lib/image'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
-import type { BookMeta, BookStatus } from '../types'
+import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } from '../types'
 
 interface AuthorDraft {
   name: string
@@ -31,6 +31,7 @@ export function AddBook() {
   const [folder, setFolder] = useState('')
   const [edition, setEdition] = useState('')
   const [status, setStatus] = useState<BookStatus>('planned')
+  const [category, setCategory] = useState<'' | BookCategory>('')
   const [tags, setTags] = useState('')
   const [description, setDescription] = useState('')
   const [totalChapters, setTotalChapters] = useState('')
@@ -73,6 +74,7 @@ export function AddBook() {
             : {}),
         })),
         status,
+        ...(category ? { category } : {}),
         ...(cover ? { cover: `/media/covers/${cleanId}.webp` } : {}),
         tags: tags
           .split(',')
@@ -101,6 +103,7 @@ export function AddBook() {
         id: cleanId,
         title: meta.title,
         status,
+        ...(category ? { category } : {}),
         chapters: [],
       })
       if (status === 'reading') nextIndex.active_book = cleanFolder
@@ -157,7 +160,7 @@ export function AddBook() {
               <TextInput value={bookId} onChange={(e) => setBookId(e.target.value)} />
             </Field>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Статус">
               <Select value={status} onChange={(e) => setStatus(e.target.value as BookStatus)}>
                 <option value="planned">planned — в планах</option>
@@ -165,6 +168,21 @@ export function AddBook() {
                 <option value="finished">finished — прочитана</option>
               </Select>
             </Field>
+            <Field label="Категория" hint="вкладка в списке книг">
+              <Select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as '' | BookCategory)}
+              >
+                <option value="">— без категории —</option>
+                {BOOK_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Издание">
               <TextInput
                 type="number"

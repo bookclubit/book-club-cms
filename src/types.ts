@@ -8,6 +8,19 @@ export interface Author {
 
 export type BookStatus = 'reading' | 'planned' | 'finished'
 
+// Категории книг — внутренние вкладки-фильтры в списке книг.
+// Клуб читает несколько книг параллельно (чередуя), категории помогают
+// не терять их в общем списке.
+export type BookCategory = 'base' | 'algorithms' | 'tools' | 'frameworks' | 'ai'
+
+export const BOOK_CATEGORIES: Array<{ id: BookCategory; label: string }> = [
+  { id: 'base', label: 'База' },
+  { id: 'algorithms', label: 'Алгоритмы' },
+  { id: 'tools', label: 'Инструменты' },
+  { id: 'frameworks', label: 'Фреймворки' },
+  { id: 'ai', label: 'AI' },
+]
+
 export interface BookMeta {
   id: string
   title: string
@@ -15,6 +28,7 @@ export interface BookMeta {
   edition?: number
   authors: Author[]
   status: BookStatus
+  category?: BookCategory
   cover?: string
   tags: string[]
   description: string
@@ -100,6 +114,7 @@ export interface IndexBook {
   id: string
   title: string
   status: BookStatus
+  category?: BookCategory
   chapters: string[]
 }
 

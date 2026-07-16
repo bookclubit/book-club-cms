@@ -60,6 +60,7 @@ export async function buildIndexFromRepo(gh: GitHubClient): Promise<ContentIndex
       id: meta.id,
       title: meta.title,
       status: meta.status,
+      ...(meta.category ? { category: meta.category } : {}),
       chapters: chapterDirs
         .filter((e) => e.type === 'dir')
         .map((e) => e.name)

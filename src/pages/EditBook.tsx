@@ -16,7 +16,7 @@ import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { loadBookMeta, mediaUrl } from '../lib/repo'
 import { slugify } from '../lib/slug'
-import type { BookMeta, BookStatus } from '../types'
+import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } from '../types'
 
 interface AuthorEdit {
   name: string
@@ -38,6 +38,7 @@ export function EditBook() {
   const [titleOriginal, setTitleOriginal] = useState('')
   const [edition, setEdition] = useState('')
   const [status, setStatus] = useState<BookStatus>('planned')
+  const [category, setCategory] = useState<'' | BookCategory>('')
   const [tags, setTags] = useState('')
   const [description, setDescription] = useState('')
   const [totalChapters, setTotalChapters] = useState('')
@@ -52,6 +53,7 @@ export function EditBook() {
     setTitleOriginal(m.title_original ?? '')
     setEdition(m.edition ? String(m.edition) : '')
     setStatus(m.status)
+    setCategory(m.category ?? '')
     setTags(m.tags.join(', '))
     setDescription(m.description)
     setTotalChapters(String(m.total_chapters))
@@ -87,6 +89,7 @@ export function EditBook() {
               : {}),
         })),
         status,
+        ...(category ? { category } : {}),
         ...(newCover || current.cover ? { cover: coverPath } : {}),
         tags: tags
           .split(',')
@@ -114,6 +117,8 @@ export function EditBook() {
       if (entry) {
         entry.title = next.title
         entry.status = status
+        if (category) entry.category = category
+        else delete entry.category
       }
       if (status === 'reading') nextIndex.active_book = folder
       files.push({ path: 'index.json', content: toJSON(nextIndex) })
@@ -168,7 +173,7 @@ export function EditBook() {
               onChange={(e) => setTitleOriginal(e.target.value)}
             />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Статус">
               <Select value={status} onChange={(e) => setStatus(e.target.value as BookStatus)}>
                 <option value="planned">planned — в планах</option>
@@ -176,6 +181,21 @@ export function EditBook() {
                 <option value="finished">finished — прочитана</option>
               </Select>
             </Field>
+            <Field label="Категория" hint="вкладка в списке книг">
+              <Select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as '' | BookCategory)}
+              >
+                <option value="">— без категории —</option>
+                {BOOK_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Издание">
               <TextInput
                 type="number"
