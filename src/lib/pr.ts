@@ -5,7 +5,7 @@ import { GitHubClient, GitHubError, type TreeEntry } from './github'
 
 export interface FileChange {
   path: string
-  content: string | Uint8Array
+  content: string | Uint8Array | null // null — удалить файл (например, при переносе)
 }
 
 export interface OpenPROptions {
@@ -57,7 +57,7 @@ export async function openContentPR(
       path: file.path,
       mode: '100644' as const,
       type: 'blob' as const,
-      sha: await gh.createBlob(file.content),
+      sha: file.content === null ? null : await gh.createBlob(file.content),
     })),
   )
 

@@ -3,12 +3,12 @@ import { clearToken } from '../lib/auth'
 
 const links = [
   { to: '/', label: 'Обзор', exact: true },
-  { to: '/books/new', label: 'Книга' },
-  { to: '/chapters/new', label: 'Глава' },
-  { to: '/topics/new', label: 'Тема' },
-  { to: '/events/new', label: 'Встреча' },
-  { to: '/flashcards/new', label: 'Карточки' },
-  { to: '/speakers/new', label: 'Спикер' },
+  { to: '/books', label: 'Книги' },
+  { to: '/chapters', label: 'Главы' },
+  { to: '/topics', label: 'Темы' },
+  { to: '/events', label: 'Встречи' },
+  { to: '/flashcards', label: 'Карточки' },
+  { to: '/speakers', label: 'Спикеры' },
 ]
 
 export function Layout() {

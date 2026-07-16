@@ -19,7 +19,7 @@ export interface TreeEntry {
   path: string
   mode: '100644'
   type: 'blob'
-  sha: string
+  sha: string | null // null — удалить файл из дерева
 }
 
 export interface DirEntry {

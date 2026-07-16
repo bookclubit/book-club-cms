@@ -26,6 +26,69 @@ function yamlList(key: string, items: string[]): string {
   return `${key}:\n${filled.map((s) => `  - ${s}`).join('\n')}`
 }
 
+// Обратный парсинг .md темы в черновик формы (для редактирования).
+// Терпим к рукописным файлам: незнакомые ключи игнорируются, отсутствующие
+// секции дают пустые значения.
+export function parseTopicMarkdown(md: string): TopicDraft | null {
+  const match = md.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/)
+  if (!match) return null
+  const [, frontmatter, body] = match
+
+  const scalars: Record<string, string> = {}
+  const lists: Record<string, string[]> = {}
+  let openList: string[] | null = null
+  for (const rawLine of frontmatter.split(/\r?\n/)) {
+    const item = rawLine.match(/^\s+-\s+(.*)$/)
+    if (item && openList) {
+      openList.push(item[1].trim())
+      continue
+    }
+    const kv = rawLine.match(/^([a-z_]+):\s*(.*)$/)
+    if (!kv) continue
+    const [, key, raw] = kv
+    if (raw === '') {
+      openList = []
+      lists[key] = openList
+      continue
+    }
+    openList = null
+    if (raw === '[]') lists[key] = []
+    else scalars[key] = raw === '""' ? '' : raw.trim()
+  }
+
+  const sections = new Map<string, string>()
+  for (const chunk of `\n${body.trim()}`.split(/\r?\n## /).slice(1)) {
+    const nl = chunk.indexOf('\n')
+    if (nl === -1) sections.set(chunk.trim(), '')
+    else sections.set(chunk.slice(0, nl).trim(), chunk.slice(nl + 1).trim())
+  }
+
+  const insights = (sections.get('Инсайты') ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^-\s+/, '').trim())
+    .filter(Boolean)
+
+  const speakerOpinions = (sections.get('Мнение спикера') ?? '')
+    .split(/\r?\n\r?\n/)
+    .map((p) => p.trim().match(/^\*\*(.+?):\*\*\s*([\s\S]*)$/))
+    .filter((m): m is RegExpMatchArray => m !== null)
+    .map((m) => ({ speaker: m[1].trim(), text: m[2].trim() }))
+
+  return {
+    id: scalars.id ?? '',
+    title: scalars.title ?? '',
+    order: Number(scalars.order) > 0 ? Number(scalars.order) : 1,
+    videoYoutube: scalars.video_youtube ?? '',
+    videoVk: scalars.video_vk ?? '',
+    presentation: scalars.presentation ?? '',
+    resources: lists.resources ?? [],
+    speakers: lists.speakers ?? [],
+    description: sections.get('Краткое описание') ?? '',
+    insights,
+    speakerOpinions,
+  }
+}
+
 export function buildTopicMarkdown(draft: TopicDraft): string {
   const frontmatter = [
     `id: ${draft.id}`,

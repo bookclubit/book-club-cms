@@ -10,11 +10,43 @@ export function useDataClient(): GitHubClient {
   return useMemo(() => dataClient(getToken() ?? ''), [])
 }
 
-interface Loadable<T> {
+export interface Loadable<T> {
   data: T | null
   error: string | null
   loading: boolean
   reload: () => void
+}
+
+// Универсальная загрузка данных для страниц редактирования.
+// loader вызывается заново при смене deps (например, параметров маршрута).
+export function useLoad<T>(loader: () => Promise<T>, deps: unknown[]): Loadable<T> {
+  const [data, setData] = useState<T | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    loader()
+      .then((value) => {
+        if (!cancelled) setData(value)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, tick])
+
+  const reload = useCallback(() => setTick((t) => t + 1), [])
+  return { data, error, loading, reload }
 }
 
 export function useIndex(gh: GitHubClient): Loadable<ContentIndex> {
