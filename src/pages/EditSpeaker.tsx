@@ -7,6 +7,7 @@ import { AVATAR_OPTS } from '../lib/image'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { mediaUrl } from '../lib/repo'
+import type { ClubEvent } from '../types'
 
 // Редактирование спикера: имя и алиасы в index.json, замена аватарки.
 // id не меняется — на него ссылаются события и доклады.
@@ -41,11 +42,34 @@ export function EditSpeaker() {
         .map((a) => a.trim())
         .filter(Boolean)
 
-      // Имя спикера продублировано в событиях (talks[].speaker) — там оно
-      // обновится при следующем редактировании конкретной встречи.
       const files: FileChange[] = [{ path: 'index.json', content: toJSON(nextIndex) }]
       if (newAvatar) {
         files.push({ path: speaker.avatar.replace(/^\//, ''), content: newAvatar })
+      }
+
+      // Имя спикера продублировано в открытых эфирах (talks[].speaker) —
+      // при переименовании обновляем все такие события этим же PR.
+      const renamedEvents: string[] = []
+      if (entry.name !== speaker.name) {
+        const liveTalkPaths = index.events.filter((p) => p.startsWith('live-talks/'))
+        const events = await Promise.all(
+          liveTalkPaths.map(async (p) => ({
+            path: `events/${p}`,
+            event: await gh.getFileJson<ClubEvent>(`events/${p}`),
+          })),
+        )
+        for (const { path, event } of events) {
+          if (!event || event.type !== 'live-talk') continue
+          if (!event.talks.some((t) => t.speaker_id === id)) continue
+          const next = {
+            ...event,
+            talks: event.talks.map((t) =>
+              t.speaker_id === id ? { ...t, speaker: entry.name } : t,
+            ),
+          }
+          files.push({ path, content: toJSON(next) })
+          renamedEvents.push(path)
+        }
       }
 
       return openContentPR(gh, {
@@ -56,6 +80,7 @@ export function EditSpeaker() {
           '',
           '- обновлён `index.json`',
           newAvatar ? `- заменена аватарка \`${speaker.avatar.replace(/^\//, '')}\`` : null,
+          ...renamedEvents.map((p) => `- имя обновлено в \`${p}\``),
           '',
           '_Обновлено через CMS Книжного клуба._',
         ]
@@ -80,7 +105,8 @@ export function EditSpeaker() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
-        Редактирование спикера <code>{id}</code> (id не меняется)
+        Редактирование спикера <code>{id}</code> (id не меняется). При переименовании
+        имя обновится и во всех открытых эфирах с его докладами.
       </p>
 
       <Card>
