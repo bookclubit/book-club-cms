@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PublishPanel } from '../components/PublishPanel'
-import { Button, Card, ErrorBox, Field, Select, TextInput } from '../components/ui'
+import { Button, Card, ErrorBox, Field, Select, TextArea, TextInput } from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
+import { materialsToText, parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
 import type { ClosedChapterEvent, ClubEvent, LiveTalkEvent } from '../types'
@@ -30,6 +31,8 @@ export function EditEvent() {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('19:00')
+  const [callUrl, setCallUrl] = useState('')
+  const [materialsText, setMaterialsText] = useState('')
 
   // closed-chapter
   const [folder, setFolder] = useState('')
@@ -50,6 +53,8 @@ export function EditEvent() {
     setTitle(ev.title)
     setDate(ev.date)
     setTime(ev.time)
+    setCallUrl(ev.call_url ?? '')
+    setMaterialsText(materialsToText(ev.materials))
     if (ev.type === 'closed-chapter') {
       setFolder(index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
       setChapterSlug(ev.chapter)
@@ -57,6 +62,12 @@ export function EditEvent() {
       setPagesTo(ev.pages ? String(ev.pages.to) : '')
       setBoardUrl(ev.notes_board_url ?? '')
     } else {
+      setFolder(
+        ev.book_id
+          ? (index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
+          : '',
+      )
+      setChapterSlug(ev.chapter ?? '')
       setYoutube(ev.streams.youtube ?? '')
       setVk(ev.streams.vk ?? '')
       setRegUrl(ev.registration_url ?? '')
@@ -68,10 +79,11 @@ export function EditEvent() {
   const filledTalks = talks.filter((t) => t.title.trim() && t.speakerId)
 
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
+  // Эфир может быть и без докладов — спикеры записываются через бота.
   const ready =
     Boolean(event.data && index) &&
     readyCommon &&
-    (kind === 'closed-chapter' ? Boolean(book && chapterSlug) : filledTalks.length > 0)
+    (kind === 'closed-chapter' ? Boolean(book && chapterSlug) : true)
 
   function submit() {
     if (!index || !event.data) return
@@ -82,6 +94,12 @@ export function EditEvent() {
       const oldPath = `events/${dir}/${file}`
       const newPath = `events/${dir}/${newFile}`
       const id = `${prefix}-${date}-${slug}`
+
+      const materials = parseMaterials(materialsText)
+      const common = {
+        ...(callUrl.trim() ? { call_url: callUrl.trim() } : {}),
+        ...(materials.length > 0 ? { materials } : {}),
+      }
 
       let next: ClosedChapterEvent | LiveTalkEvent
       if (kind === 'closed-chapter') {
@@ -98,6 +116,7 @@ export function EditEvent() {
             ? { pages: { from: Number(pagesFrom), to: Number(pagesTo) } }
             : {}),
           ...(boardUrl.trim() ? { notes_board_url: boardUrl.trim() } : {}),
+          ...common,
         }
       } else {
         next = {
@@ -121,6 +140,9 @@ export function EditEvent() {
             }
           }),
           ...(regUrl.trim() ? { registration_url: regUrl.trim() } : {}),
+          ...(book ? { book_id: book.id } : {}),
+          ...(chapterSlug ? { chapter: chapterSlug } : {}),
+          ...common,
         }
       }
 
@@ -187,6 +209,12 @@ export function EditEvent() {
               <TextInput type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </Field>
           </div>
+          <Field label="Ссылка на созвон" hint="Zoom / Meet / телеграм-эфир — бот выдаст её записавшимся">
+            <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://…" />
+          </Field>
+          <Field label="Доп. материалы" hint="по одному на строку: «название | ссылка»">
+            <TextArea rows={2} value={materialsText} onChange={(e) => setMaterialsText(e.target.value)} />
+          </Field>
         </div>
       </Card>
 
@@ -244,6 +272,39 @@ export function EditEvent() {
         <>
           <Card>
             <div className="space-y-4">
+              <p className="text-sm font-medium">Программа эфира</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Книга" hint="из глав этой книги бот предложит темы спикерам">
+                  <Select
+                    value={folder}
+                    onChange={(e) => {
+                      setFolder(e.target.value)
+                      setChapterSlug('')
+                    }}
+                  >
+                    <option value="">— не привязывать —</option>
+                    {index?.books.map((b) => (
+                      <option key={b.folder} value={b.folder}>
+                        {b.title}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Глава">
+                  <Select
+                    value={chapterSlug}
+                    onChange={(e) => setChapterSlug(e.target.value)}
+                    disabled={!book}
+                  >
+                    <option value="">— выберите —</option>
+                    {book?.chapters.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Трансляция YouTube">
                   <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />

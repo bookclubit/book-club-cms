@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { PublishPanel } from '../components/PublishPanel'
-import { Button, Card, Field, Select, TextInput } from '../components/ui'
+import { Button, Card, Field, Select, TextArea, TextInput } from '../components/ui'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
 import type { ClosedChapterEvent, LiveTalkEvent } from '../types'
@@ -22,6 +23,8 @@ export function AddEvent() {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('19:00')
+  const [callUrl, setCallUrl] = useState('')
+  const [materialsText, setMaterialsText] = useState('')
 
   // closed-chapter
   const [folder, setFolder] = useState('')
@@ -41,11 +44,10 @@ export function AddEvent() {
 
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
   const filledTalks = talks.filter((t) => t.title.trim() && t.speakerId)
+  // Эфир можно создать и без докладов: спикеры запишутся через бота,
+  // админ добавит подтверждённые доклады позже через редактирование.
   const ready =
-    readyCommon &&
-    (kind === 'closed-chapter'
-      ? Boolean(book && chapterSlug)
-      : filledTalks.length > 0)
+    readyCommon && (kind === 'closed-chapter' ? Boolean(book && chapterSlug) : true)
 
   function submit() {
     if (!index) return
@@ -54,6 +56,12 @@ export function AddEvent() {
       const id = `${prefix}-${date}-${slug}`
       const fileDir = kind === 'closed-chapter' ? 'closed-chapters' : 'live-talks'
       const filePath = `events/${fileDir}/${date}-${slug}.json`
+
+      const materials = parseMaterials(materialsText)
+      const common = {
+        ...(callUrl.trim() ? { call_url: callUrl.trim() } : {}),
+        ...(materials.length > 0 ? { materials } : {}),
+      }
 
       let event: ClosedChapterEvent | LiveTalkEvent
       if (kind === 'closed-chapter') {
@@ -70,6 +78,7 @@ export function AddEvent() {
             ? { pages: { from: Number(pagesFrom), to: Number(pagesTo) } }
             : {}),
           ...(boardUrl.trim() ? { notes_board_url: boardUrl.trim() } : {}),
+          ...common,
         }
       } else {
         event = {
@@ -93,6 +102,10 @@ export function AddEvent() {
             }
           }),
           ...(regUrl.trim() ? { registration_url: regUrl.trim() } : {}),
+          // Программа эфира: из этой главы бот предлагает темы спикерам.
+          ...(book ? { book_id: book.id } : {}),
+          ...(chapterSlug ? { chapter: chapterSlug } : {}),
+          ...common,
         }
       }
 
@@ -151,6 +164,12 @@ export function AddEvent() {
               <TextInput type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </Field>
           </div>
+          <Field label="Ссылка на созвон" hint="Zoom / Meet / телеграм-эфир — бот выдаст её записавшимся">
+            <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://…" />
+          </Field>
+          <Field label="Доп. материалы" hint="по одному на строку: «название | ссылка»">
+            <TextArea rows={2} value={materialsText} onChange={(e) => setMaterialsText(e.target.value)} />
+          </Field>
         </div>
       </Card>
 
@@ -220,6 +239,39 @@ export function AddEvent() {
         <>
           <Card>
             <div className="space-y-4">
+              <p className="text-sm font-medium">Программа эфира</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Книга" hint="из глав этой книги бот предложит темы спикерам">
+                  <Select
+                    value={folder}
+                    onChange={(e) => {
+                      setFolder(e.target.value)
+                      setChapterSlug('')
+                    }}
+                  >
+                    <option value="">— не привязывать —</option>
+                    {index?.books.map((b) => (
+                      <option key={b.folder} value={b.folder}>
+                        {b.title}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Глава">
+                  <Select
+                    value={chapterSlug}
+                    onChange={(e) => setChapterSlug(e.target.value)}
+                    disabled={!book}
+                  >
+                    <option value="">— выберите —</option>
+                    {book?.chapters.map((slug) => (
+                      <option key={slug} value={slug}>
+                        {slug}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Трансляция YouTube">
                   <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />

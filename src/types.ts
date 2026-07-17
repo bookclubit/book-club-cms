@@ -71,6 +71,12 @@ export interface FlashcardCommand {
 
 export type Flashcard = FlashcardQA | FlashcardCommand
 
+// Доп. материал встречи (статья, конспект, репозиторий…).
+export interface EventMaterial {
+  title: string
+  url: string
+}
+
 export interface ClosedChapterEvent {
   id: string
   type: 'closed-chapter'
@@ -82,6 +88,8 @@ export interface ClosedChapterEvent {
   chapter: string
   pages?: { from: number; to: number }
   notes_board_url?: string
+  call_url?: string
+  materials?: EventMaterial[]
 }
 
 export interface LiveTalk {
@@ -101,6 +109,11 @@ export interface LiveTalkEvent {
   streams: { youtube?: string; vk?: string }
   talks: LiveTalk[]
   registration_url?: string
+  call_url?: string
+  materials?: EventMaterial[]
+  /** Книга и глава программы эфира — из них бот предлагает темы спикерам. */
+  book_id?: string
+  chapter?: string
 }
 
 export type ClubEvent = ClosedChapterEvent | LiveTalkEvent
