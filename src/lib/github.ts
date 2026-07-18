@@ -110,6 +110,17 @@ export class GitHubClient {
     return user.login
   }
 
+  // repository_dispatch — запускает workflow этого репозитория с полезной нагрузкой.
+  async repositoryDispatch(
+    eventType: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.request(`${this.repoPath}/dispatches`, {
+      method: 'POST',
+      body: { event_type: eventType, client_payload: payload },
+    })
+  }
+
   // Проверка доступа: токен должен видеть репозиторий и иметь право пушить.
   async checkAccess(): Promise<{ canPush: boolean; defaultBranch: string }> {
     const repo = await this.request<{

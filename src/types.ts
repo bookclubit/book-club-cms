@@ -110,6 +110,7 @@ export interface LiveTalk {
   speaker: string
   speaker_id: string
   avatar: string
+  slides_url?: string // ссылка на презентацию (talks)
 }
 
 export interface LiveTalkEvent {
