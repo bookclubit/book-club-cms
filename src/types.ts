@@ -142,11 +142,22 @@ export interface IndexBook {
   chapters: string[]
 }
 
+export type SpeakerSocial = 'telegram' | 'github' | 'linkedin' | 'website'
+
+export const SPEAKER_SOCIALS: Array<{ id: SpeakerSocial; label: string; placeholder: string }> = [
+  { id: 'telegram', label: 'Telegram', placeholder: 'https://t.me/…' },
+  { id: 'github', label: 'GitHub', placeholder: 'https://github.com/…' },
+  { id: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/…' },
+  { id: 'website', label: 'Сайт', placeholder: 'https://…' },
+]
+
 export interface IndexSpeaker {
   id: string
   name: string
   aliases: string[]
   avatar: string
+  bio?: string
+  socials?: Partial<Record<SpeakerSocial, string>>
 }
 
 export interface ContentIndex {

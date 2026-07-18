@@ -2,12 +2,17 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ImagePicker } from '../components/ImagePicker'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, ErrorBox, Field, TextInput } from '../components/ui'
+import {
+  collectSocials,
+  EMPTY_SOCIALS,
+  SpeakerSocialsFields,
+} from '../components/SpeakerSocialsFields'
+import { Card, ErrorBox, Field, TextArea, TextInput } from '../components/ui'
 import { AVATAR_OPTS } from '../lib/image'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { mediaUrl } from '../lib/repo'
-import type { ClubEvent } from '../types'
+import type { ClubEvent, SpeakerSocial } from '../types'
 
 // Редактирование спикера: имя и алиасы в index.json, замена аватарки.
 // id не меняется — на него ссылаются события и доклады.
@@ -21,12 +26,16 @@ export function EditSpeaker() {
 
   const [name, setName] = useState('')
   const [aliases, setAliases] = useState('')
+  const [bio, setBio] = useState('')
+  const [socials, setSocials] = useState<Record<SpeakerSocial, string>>(EMPTY_SOCIALS)
   const [newAvatar, setNewAvatar] = useState<Uint8Array | null>(null)
 
   useEffect(() => {
     if (!speaker) return
     setName(speaker.name)
     setAliases(speaker.aliases.join(', '))
+    setBio(speaker.bio ?? '')
+    setSocials({ ...EMPTY_SOCIALS, ...speaker.socials })
   }, [speaker])
 
   const ready = Boolean(speaker && name.trim())
@@ -41,6 +50,12 @@ export function EditSpeaker() {
         .split(',')
         .map((a) => a.trim())
         .filter(Boolean)
+      const trimmedBio = bio.trim()
+      if (trimmedBio) entry.bio = trimmedBio
+      else delete entry.bio
+      const socialLinks = collectSocials(socials)
+      if (Object.keys(socialLinks).length > 0) entry.socials = socialLinks
+      else delete entry.socials
 
       const files: FileChange[] = [{ path: 'index.json', content: toJSON(nextIndex) }]
       if (newAvatar) {
@@ -133,6 +148,18 @@ export function EditSpeaker() {
                 onChange={setNewAvatar}
               />
             </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-4">
+          <Field label="О себе" hint="краткое описание — покажется в профиле спикера">
+            <TextArea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
+          </Field>
+          <div>
+            <p className="mb-2 text-sm font-medium">Соцсети</p>
+            <SpeakerSocialsFields value={socials} onChange={setSocials} />
           </div>
         </div>
       </Card>

@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ImagePicker } from '../components/ImagePicker'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, Field, TextInput } from '../components/ui'
+import {
+  collectSocials,
+  EMPTY_SOCIALS,
+  SpeakerSocialsFields,
+} from '../components/SpeakerSocialsFields'
+import { Card, Field, TextArea, TextInput } from '../components/ui'
 import { fetchClaimPhoto, listSpeakerClaims } from '../lib/botApi'
 import { AVATAR_OPTS, fileToWebP } from '../lib/image'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
+import type { SpeakerSocial } from '../types'
 
 export function AddSpeaker() {
   const gh = useDataClient()
@@ -17,6 +23,8 @@ export function AddSpeaker() {
 
   const [firstName, setFirstName] = useState('')
   const [surname, setSurname] = useState('')
+  const [bio, setBio] = useState('')
+  const [socials, setSocials] = useState<Record<SpeakerSocial, string>>(EMPTY_SOCIALS)
   const [avatar, setAvatar] = useState<Uint8Array | null>(null)
   const [prefillPreview, setPrefillPreview] = useState<string | null>(null)
   const [prefillNote, setPrefillNote] = useState<string | null>(null)
@@ -66,12 +74,15 @@ export function AddSpeaker() {
       const fullName = `${firstName.trim()} ${surname.trim()}`
       const avatarPath = `/media/speakers/${speakerId}.webp`
 
+      const socialLinks = collectSocials(socials)
       const nextIndex = structuredClone(index)
       nextIndex.speakers.push({
         id: speakerId,
         name: fullName,
         aliases: [firstName.trim(), fullName],
         avatar: avatarPath,
+        ...(bio.trim() ? { bio: bio.trim() } : {}),
+        ...(Object.keys(socialLinks).length > 0 ? { socials: socialLinks } : {}),
       })
 
       const files: FileChange[] = [
@@ -145,6 +156,23 @@ export function AddSpeaker() {
                 }}
               />
             </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-4">
+          <Field label="О себе" hint="краткое описание — покажется в профиле спикера">
+            <TextArea
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Фронтендер, любит Docker и доклады про инфраструктуру"
+            />
+          </Field>
+          <div>
+            <p className="mb-2 text-sm font-medium">Соцсети</p>
+            <SpeakerSocialsFields value={socials} onChange={setSocials} />
           </div>
         </div>
       </Card>
