@@ -25,6 +25,7 @@ export interface SpeakerClaim {
   username: string | null
   full_name: string | null
   photo_file_id: string | null
+  speaker_id: string | null // каталожный спикер, если бот узнал заявителя по Telegram
   status: 'pending' | 'confirmed'
   created_at: number
 }

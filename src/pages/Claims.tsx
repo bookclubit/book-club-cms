@@ -110,6 +110,11 @@ export function Claims() {
                     @{claim.username}
                   </a>
                 )}
+                {claim.speaker_id && (
+                  <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                    ✓ в каталоге
+                  </span>
+                )}
               </p>
             </div>
             <span
@@ -129,13 +134,18 @@ export function Claims() {
                 ✅ Подтвердить
               </Button>
             )}
-            {claim.status === 'confirmed' && (
+            {claim.status === 'confirmed' && !claim.speaker_id && (
               <Link
                 to={`/speakers/new?claim=${claim.id}`}
                 className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/85"
               >
                 Оформить спикером
               </Link>
+            )}
+            {claim.status === 'confirmed' && claim.speaker_id && (
+              <span className="self-center text-sm text-muted">
+                Спикер уже в каталоге — оформлять не нужно.
+              </span>
             )}
             <Button
               variant="danger"

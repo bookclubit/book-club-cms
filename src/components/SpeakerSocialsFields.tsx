@@ -13,7 +13,15 @@ export function SpeakerSocialsFields({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {SPEAKER_SOCIALS.map((s) => (
-        <Field key={s.id} label={s.label}>
+        <Field
+          key={s.id}
+          label={s.label}
+          hint={
+            s.id === 'telegram'
+              ? 'по нему бот узнаёт спикера — не спросит имя/фото повторно'
+              : undefined
+          }
+        >
           <TextInput
             type="url"
             inputMode="url"
