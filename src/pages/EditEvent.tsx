@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { ImagePicker } from '../components/ImagePicker'
 import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
-import { Button, Card, ErrorBox, Field, Select, TextArea, TextInput } from '../components/ui'
+import { TalkProgram, type TalkAssignment, type TalkRow } from '../components/TalkProgram'
+import { Card, ErrorBox, Field, Select, TextArea, TextInput } from '../components/ui'
 import { getToken } from '../lib/auth'
-import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
+import { useChapterTopics, useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { BOARD_OPTS } from '../lib/image'
 import { materialsToText, parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
@@ -13,12 +14,6 @@ import { loadBookMeta, loadChapter, RAW_BASE } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import { dispatchNewTalk, slidesUrl } from '../lib/talksApi'
 import type { ClosedChapterEvent, ClubEvent, EventModerator, LiveTalkEvent } from '../types'
-
-interface TalkDraft {
-  title: string
-  speakerId: string
-  slidesUrl: string
-}
 
 // Редактирование встречи. Имя файла содержит дату и slug названия, поэтому
 // при их смене файл переносится (старый удаляется, новый создаётся) одним PR
@@ -54,13 +49,16 @@ export function EditEvent() {
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
   const [stream, setStream] = useState('')
-  const [talks, setTalks] = useState<TalkDraft[]>([])
+  // Назначения спикеров темам главы (ключ — id темы или `off:<название>`).
+  const [assign, setAssign] = useState<Record<string, TalkAssignment>>({})
+  // Устаревшие доклады, чьих тем нет в текущей главе, — чтобы не потерять их.
+  const [offRows, setOffRows] = useState<TalkRow[]>([])
 
   // общее: завершённость встречи (уводит в архив в miniapp)
   const [finished, setFinished] = useState(false)
 
   // генерация презентации доклада (repository_dispatch в talks)
-  const [genIdx, setGenIdx] = useState<number | null>(null)
+  const [genId, setGenId] = useState<string | null>(null)
   const [genMsg, setGenMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -89,18 +87,42 @@ export function EditEvent() {
       )
       setChapterSlug(ev.chapter ?? '')
       setStream(ev.stream ? String(ev.stream) : '')
-      setTalks(
-        ev.talks.map((t) => ({
-          title: t.title,
-          speakerId: t.speaker_id,
-          slidesUrl: t.slides_url ?? '',
-        })),
-      )
     }
   }, [event.data, index])
 
   const book = index?.books.find((b) => b.folder === folder)
-  const filledTalks = talks.filter((t) => t.title.trim() && t.speakerId)
+
+  // Темы выбранной главы — слоты докладов.
+  const { topics, loading: topicsLoading } = useChapterTopics(
+    gh,
+    folder,
+    chapterSlug,
+    kind === 'live-talk',
+  )
+
+  // Раскладываем сохранённые доклады по темам главы: совпадение по topic_id или
+  // названию. Доклады без темы в главе — в offRows (сохраняем как «вне плана»).
+  useEffect(() => {
+    const ev = event.data
+    if (!ev || ev.type !== 'live-talk' || topics === null) return
+    const nextAssign: Record<string, TalkAssignment> = {}
+    const offs: TalkRow[] = []
+    for (const t of ev.talks) {
+      const topic = topics.find((x) => x.id === t.topic_id || x.title === t.title)
+      const id = topic ? topic.id : `off:${t.title}`
+      if (!topic) offs.push({ id, title: t.title, offPlan: true })
+      nextAssign[id] = { speakerId: t.speaker_id, slidesUrl: t.slides_url ?? '' }
+    }
+    setAssign(nextAssign)
+    setOffRows(offs)
+  }, [event.data, topics])
+
+  // Строки программы: темы главы + устаревшие доклады вне плана.
+  const rows: TalkRow[] = [
+    ...(topics ?? []).map((t) => ({ id: t.id, title: t.title })),
+    ...offRows,
+  ]
+  const program = rows.filter((r) => assign[r.id]?.speakerId)
 
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
   // Эфир может быть и без докладов — спикеры записываются через бота.
@@ -172,14 +194,17 @@ export function EditEvent() {
           time,
           timezone: 'Europe/Moscow',
           streams,
-          talks: filledTalks.map((t) => {
-            const speaker = index.speakers.find((s) => s.id === t.speakerId)!
+          talks: program.map((r) => {
+            const a = assign[r.id]
+            const speaker = index.speakers.find((s) => s.id === a.speakerId)!
+            const topic = topics?.find((t) => t.id === r.id)
             return {
-              title: t.title.trim(),
+              title: r.title,
               speaker: speaker.name,
               speaker_id: speaker.id,
               avatar: speaker.avatar,
-              ...(t.slidesUrl.trim() ? { slides_url: t.slidesUrl.trim() } : {}),
+              ...(topic ? { topic_id: topic.id } : {}),
+              ...(a.slidesUrl.trim() ? { slides_url: a.slidesUrl.trim() } : {}),
             }
           }),
           ...(book ? { book_id: book.id } : {}),
@@ -224,16 +249,17 @@ export function EditEvent() {
   }
 
   // Генерация презентации доклада: считает URL, подставляет и запускает PR в talks.
-  async function generateTalk(i: number) {
-    const talk = talks[i]
+  async function generateTalk(rowId: string) {
+    const a = assign[rowId]
+    const topic = topics?.find((t) => t.id === rowId)
     setGenMsg(null)
     if (!book) return setGenMsg('Сначала выберите книгу')
     if (!chapterSlug) return setGenMsg('Выберите главу')
-    if (!talk.speakerId) return setGenMsg('Выберите спикера доклада')
-    if (!talk.title.trim()) return setGenMsg('Укажите тему доклада (как в главе)')
+    if (!topic) return setGenMsg('Презентацию можно сгенерировать только для темы из плана главы')
+    if (!a?.speakerId) return setGenMsg('Назначьте спикера теме')
     if (!(Number(stream) > 0)) return setGenMsg('Укажите номер стрима')
 
-    setGenIdx(i)
+    setGenId(rowId)
     try {
       const meta = await loadBookMeta(gh, book.folder)
       if (!meta?.code) throw new Error('У книги нет кода (задайте в форме книги: DOCKER, REACT…)')
@@ -244,22 +270,22 @@ export function EditEvent() {
         stream: Number(stream),
         code: meta.code,
         chapterOrder: chapter.order,
-        speakerId: talk.speakerId,
+        speakerId: a.speakerId,
       })
-      setTalks((prev) => prev.map((t, j) => (j === i ? { ...t, slidesUrl: url } : t)))
+      setAssign((prev) => ({ ...prev, [rowId]: { ...prev[rowId], slidesUrl: url } }))
 
       await dispatchNewTalk(getToken() ?? '', {
         book: book.folder,
         chapter: chapterSlug,
-        topic: talk.title.trim(),
-        speaker: talk.speakerId,
+        topic: topic.title,
+        speaker: a.speakerId,
         stream: Number(stream),
       })
       setGenMsg(`✓ Запущена генерация. PR появится в book-club-talks, слайды: ${url}. Сохраните встречу, чтобы ссылка попала в приложение.`)
     } catch (e) {
       setGenMsg(e instanceof Error ? e.message : String(e))
     } finally {
-      setGenIdx(null)
+      setGenId(null)
     }
   }
 
@@ -450,73 +476,32 @@ export function EditEvent() {
             </div>
           </Card>
           <Card>
-            <p className="mb-1 text-sm font-medium">Доклады</p>
+            <p className="mb-1 text-sm font-medium">Темы главы</p>
             <p className="mb-4 text-xs text-muted">
-              «Создать презентацию» соберёт доклад из book-club-data и откроет PR в
-              book-club-talks; ссылка на слайды подставится ниже (сохраните встречу, чтобы
-              она попала в приложение).
+              Назначь спикера теме — «Создать презентацию» соберёт доклад из
+              book-club-data и откроет PR в book-club-talks; ссылка на слайды подставится
+              рядом (сохрани встречу, чтобы она попала в приложение).
             </p>
-            <div className="space-y-4">
-              {talks.map((talk, i) => (
-                <div key={i} className="space-y-3 rounded-xl border border-line p-4">
-                  <div className="grid gap-3 sm:grid-cols-[1fr_14rem_auto]">
-                    <Field label="Тема доклада" hint="должна совпадать с темой главы">
-                      <TextInput
-                        value={talk.title}
-                        onChange={(e) =>
-                          setTalks(talks.map((t, j) => (j === i ? { ...t, title: e.target.value } : t)))
-                        }
-                      />
-                    </Field>
-                    <Field label="Спикер">
-                      <Select
-                        value={talk.speakerId}
-                        onChange={(e) =>
-                          setTalks(talks.map((t, j) => (j === i ? { ...t, speakerId: e.target.value } : t)))
-                        }
-                      >
-                        <option value="">— выберите —</option>
-                        {index?.speakers.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                    <div className="flex items-end">
-                      {talks.length > 1 && (
-                        <Button variant="danger" onClick={() => setTalks(talks.filter((_, j) => j !== i))}>
-                          ✕
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <Field label="Ссылка на презентацию" hint="заполняется кнопкой ниже или вручную">
-                    <TextInput
-                      value={talk.slidesUrl}
-                      onChange={(e) =>
-                        setTalks(talks.map((t, j) => (j === i ? { ...t, slidesUrl: e.target.value } : t)))
-                      }
-                      placeholder="https://bc-112-docker-1-pomazkov.pages.dev"
-                    />
-                  </Field>
-                  <Button
-                    variant="ghost"
-                    disabled={genIdx !== null}
-                    onClick={() => generateTalk(i)}
-                  >
-                    {genIdx === i ? 'Создаём…' : '🎤 Создать презентацию (PR)'}
-                  </Button>
-                </div>
-              ))}
-              {genMsg && <p className="text-sm text-muted">{genMsg}</p>}
-              <Button
-                variant="ghost"
-                onClick={() => setTalks([...talks, { title: '', speakerId: '', slidesUrl: '' }])}
-              >
-                + Ещё доклад
-              </Button>
-            </div>
+            <TalkProgram
+              chapterSelected={Boolean(book && chapterSlug)}
+              loading={topicsLoading}
+              rows={rows}
+              speakers={index?.speakers ?? []}
+              assignments={assign}
+              onSpeaker={(id, speakerId) =>
+                setAssign((p) => ({
+                  ...p,
+                  [id]: { ...(p[id] ?? { speakerId: '', slidesUrl: '' }), speakerId },
+                }))
+              }
+              onSlides={(id, url) =>
+                setAssign((p) => ({
+                  ...p,
+                  [id]: { ...(p[id] ?? { speakerId: '', slidesUrl: '' }), slidesUrl: url },
+                }))
+              }
+              generate={{ run: generateTalk, busyId: genId, message: genMsg }}
+            />
           </Card>
         </>
       )}

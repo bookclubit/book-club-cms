@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { ImagePicker } from '../components/ImagePicker'
 import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
-import { Button, Card, Field, Select, TextArea, TextInput } from '../components/ui'
-import { useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { TalkProgram, type TalkAssignment } from '../components/TalkProgram'
+import { Card, Field, Select, TextArea, TextInput } from '../components/ui'
+import { useChapterTopics, useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { BOARD_OPTS } from '../lib/image'
 import { parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
@@ -12,11 +13,6 @@ import { slugify } from '../lib/slug'
 import type { ClosedChapterEvent, EventModerator, LiveTalkEvent } from '../types'
 
 type EventKind = 'closed-chapter' | 'live-talk'
-
-interface TalkDraft {
-  title: string
-  speakerId: string
-}
 
 export function AddEvent() {
   const gh = useDataClient()
@@ -43,15 +39,25 @@ export function AddEvent() {
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
   const [stream, setStream] = useState('')
-  const [talks, setTalks] = useState<TalkDraft[]>([{ title: '', speakerId: '' }])
+  // Назначения спикеров темам главы (ключ — id темы).
+  const [assign, setAssign] = useState<Record<string, TalkAssignment>>({})
 
   const book = index?.books.find((b) => b.folder === folder)
   const slug = slugify(title)
 
+  // Темы выбранной главы — слоты докладов эфира.
+  const { topics, loading: topicsLoading } = useChapterTopics(
+    gh,
+    folder,
+    chapterSlug,
+    kind === 'live-talk',
+  )
+  // Доклады эфира — темы главы, которым назначен спикер.
+  const program = (topics ?? []).filter((t) => assign[t.id]?.speakerId)
+
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
-  const filledTalks = talks.filter((t) => t.title.trim() && t.speakerId)
   // Эфир можно создать и без докладов: спикеры запишутся через бота,
-  // админ добавит подтверждённые доклады позже через редактирование.
+  // админ назначит подтверждённые темы позже через редактирование.
   const ready =
     readyCommon && (kind === 'closed-chapter' ? Boolean(book && chapterSlug) : true)
 
@@ -115,13 +121,14 @@ export function AddEvent() {
           time,
           timezone: 'Europe/Moscow',
           streams,
-          talks: filledTalks.map((t) => {
-            const speaker = index.speakers.find((s) => s.id === t.speakerId)!
+          talks: program.map((topic) => {
+            const speaker = index.speakers.find((s) => s.id === assign[topic.id].speakerId)!
             return {
-              title: t.title.trim(),
+              title: topic.title,
               speaker: speaker.name,
               speaker_id: speaker.id,
               avatar: speaker.avatar,
+              topic_id: topic.id,
             }
           }),
           // Программа докладов: из этой главы бот предлагает темы спикерам.
@@ -147,7 +154,7 @@ export function AddEvent() {
         body: [
           kind === 'closed-chapter'
             ? `Открытое обсуждение: разбор главы \`${chapterSlug}\` книги **${book!.title}**.`
-            : `Доклады: ${filledTalks.length}.`,
+            : `Доклады: ${program.length} из ${topics?.length ?? 0} тем главы.`,
           '',
           `- \`${filePath}\``,
           '- обновлён `index.json`',
@@ -338,46 +345,24 @@ export function AddEvent() {
             </div>
           </Card>
           <Card>
-            <p className="mb-4 text-sm font-medium">Доклады</p>
-            <div className="space-y-4">
-              {talks.map((talk, i) => (
-                <div key={i} className="grid gap-3 rounded-xl border border-line p-4 sm:grid-cols-[1fr_14rem_auto]">
-                  <Field label="Тема доклада">
-                    <TextInput
-                      value={talk.title}
-                      onChange={(e) =>
-                        setTalks(talks.map((t, j) => (j === i ? { ...t, title: e.target.value } : t)))
-                      }
-                    />
-                  </Field>
-                  <Field label="Спикер">
-                    <Select
-                      value={talk.speakerId}
-                      onChange={(e) =>
-                        setTalks(talks.map((t, j) => (j === i ? { ...t, speakerId: e.target.value } : t)))
-                      }
-                    >
-                      <option value="">— выберите —</option>
-                      {index?.speakers.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <div className="flex items-end">
-                    {talks.length > 1 && (
-                      <Button variant="danger" onClick={() => setTalks(talks.filter((_, j) => j !== i))}>
-                        ✕
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <Button variant="ghost" onClick={() => setTalks([...talks, { title: '', speakerId: '' }])}>
-                + Ещё доклад
-              </Button>
-            </div>
+            <p className="mb-1 text-sm font-medium">Темы главы</p>
+            <p className="mb-4 text-xs text-muted">
+              Все темы выбранной главы — слоты докладов. Обычно спикеры записываются
+              через бота; при желании можно назначить спикера теме сразу.
+            </p>
+            <TalkProgram
+              chapterSelected={Boolean(book && chapterSlug)}
+              loading={topicsLoading}
+              rows={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
+              speakers={index?.speakers ?? []}
+              assignments={assign}
+              onSpeaker={(id, speakerId) =>
+                setAssign((p) => ({
+                  ...p,
+                  [id]: { ...(p[id] ?? { speakerId: '', slidesUrl: '' }), speakerId },
+                }))
+              }
+            />
           </Card>
         </>
       )}
