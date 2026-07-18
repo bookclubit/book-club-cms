@@ -101,8 +101,10 @@ export function buildTopicMarkdown(draft: TopicDraft): string {
     yamlList('speakers', draft.speakers),
   ].join('\n')
 
+  // Контент темы можно дозаполнить после встречи — пустые секции не пишем.
   const sections: string[] = []
-  sections.push(`## Краткое описание\n\n${draft.description.trim()}`)
+  const description = draft.description.trim()
+  if (description) sections.push(`## Краткое описание\n\n${description}`)
 
   const insights = draft.insights.map((s) => s.trim()).filter(Boolean)
   if (insights.length > 0) {

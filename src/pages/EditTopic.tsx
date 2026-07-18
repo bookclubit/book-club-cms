@@ -55,7 +55,8 @@ export function EditTopic() {
     )
   }, [loaded.data])
 
-  const ready = Boolean(loaded.data && title.trim() && description.trim())
+  // Описание опционально — тему можно дозаполнять постепенно после встречи.
+  const ready = Boolean(loaded.data && title.trim())
 
   function toggleSpeaker(name: string) {
     setSpeakers((prev) =>
@@ -214,7 +215,7 @@ export function EditTopic() {
         onSubmit={submit}
         onReset={reset}
         disabled={!ready}
-        disabledReason="Название и описание обязательны"
+        disabledReason="Укажите название темы"
         submitLabel="Создать pull request с правками"
       />
     </div>

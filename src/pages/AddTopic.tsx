@@ -59,7 +59,9 @@ export function AddTopic() {
   const fileName = `${pad2(nextOrder)}-${slugify(title)}.md`
   const topicId = book && chapter ? `${book.id}-${chapter.order}-${nextOrder}` : ''
 
-  const ready = Boolean(book && chapter && title.trim() && description.trim())
+  // Достаточно названия — остальное (описание, видео, инсайты) можно
+  // дозаполнить после встречи через редактирование темы.
+  const ready = Boolean(book && chapter && title.trim())
 
   function toggleSpeaker(name: string) {
     setSpeakers((prev) =>
@@ -163,6 +165,11 @@ export function AddTopic() {
 
       <Card>
         <div className="space-y-4">
+          <p className="text-xs text-muted">
+            Обязательно только название — тему можно завести заранее, а описание,
+            видео, инсайты и мнения спикеров дозаполнить после встречи через
+            редактирование темы.
+          </p>
           <Field label="Название темы">
             <TextInput
               value={title}
@@ -227,7 +234,7 @@ export function AddTopic() {
 
       <Card>
         <div className="space-y-4">
-          <Field label="Краткое описание">
+          <Field label="Краткое описание" hint="опционально — можно после встречи">
             <TextArea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -254,7 +261,7 @@ export function AddTopic() {
         onSubmit={submit}
         onReset={reset}
         disabled={!ready}
-        disabledReason="Выберите книгу и главу, заполните название и описание"
+        disabledReason="Выберите книгу и главу, укажите название темы"
       />
     </div>
   )
