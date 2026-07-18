@@ -33,6 +33,8 @@ export interface BookMeta {
   tags: string[]
   description: string
   total_chapters: number
+  /** Код книги для генератора презентаций (talks): DOCKER, REACT… */
+  code?: string
 }
 
 export interface TopicRef {
@@ -125,6 +127,8 @@ export interface LiveTalkEvent {
   book_id?: string
   chapter?: string
   finished?: boolean
+  /** Номер стрима — часть имени папки доклада в talks (BC-<stream>-…). */
+  stream?: number
 }
 
 export type ClubEvent = ClosedChapterEvent | LiveTalkEvent

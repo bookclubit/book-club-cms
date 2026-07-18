@@ -40,6 +40,7 @@ export function EditBook() {
   const [status, setStatus] = useState<BookStatus>('planned')
   const [category, setCategory] = useState<'' | BookCategory>('')
   const [tags, setTags] = useState('')
+  const [code, setCode] = useState('')
   const [description, setDescription] = useState('')
   const [totalChapters, setTotalChapters] = useState('')
   const [newCover, setNewCover] = useState<Uint8Array | null>(null)
@@ -55,6 +56,7 @@ export function EditBook() {
     setStatus(m.status)
     setCategory(m.category ?? '')
     setTags(m.tags.join(', '))
+    setCode(m.code ?? '')
     setDescription(m.description)
     setTotalChapters(String(m.total_chapters))
     setAuthors(
@@ -97,6 +99,7 @@ export function EditBook() {
           .filter(Boolean),
         description: description.trim(),
         total_chapters: Number(totalChapters),
+        ...(code.trim() ? { code: code.trim().toUpperCase() } : {}),
       }
 
       files.push({ path: `books/${folder}/meta.json`, content: toJSON(next) })
@@ -213,9 +216,14 @@ export function EditBook() {
               />
             </Field>
           </div>
-          <Field label="Теги" hint="через запятую">
-            <TextInput value={tags} onChange={(e) => setTags(e.target.value)} />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Теги" hint="через запятую">
+              <TextInput value={tags} onChange={(e) => setTags(e.target.value)} />
+            </Field>
+            <Field label="Код (для презентаций)" hint="в имени папки доклада: DOCKER, REACT">
+              <TextInput value={code} onChange={(e) => setCode(e.target.value)} placeholder="DOCKER" />
+            </Field>
+          </div>
           <Field label="Описание">
             <TextArea
               value={description}

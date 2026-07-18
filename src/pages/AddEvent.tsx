@@ -42,6 +42,7 @@ export function AddEvent() {
   // live-talk
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
+  const [stream, setStream] = useState('')
   const [talks, setTalks] = useState<TalkDraft[]>([{ title: '', speakerId: '' }])
 
   const book = index?.books.find((b) => b.folder === folder)
@@ -126,6 +127,7 @@ export function AddEvent() {
           // Программа докладов: из этой главы бот предлагает темы спикерам.
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
+          ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
           ...common,
         }
       }
@@ -324,6 +326,15 @@ export function AddEvent() {
                   </Select>
                 </Field>
               </div>
+              <Field label="Номер стрима" hint="в имени папки доклада: BC-<стрим>-… (например 112)">
+                <TextInput
+                  type="number"
+                  min={1}
+                  value={stream}
+                  onChange={(e) => setStream(e.target.value)}
+                  placeholder="112"
+                />
+              </Field>
             </div>
           </Card>
           <Card>

@@ -33,6 +33,7 @@ export function AddBook() {
   const [status, setStatus] = useState<BookStatus>('planned')
   const [category, setCategory] = useState<'' | BookCategory>('')
   const [tags, setTags] = useState('')
+  const [code, setCode] = useState('')
   const [description, setDescription] = useState('')
   const [totalChapters, setTotalChapters] = useState('')
   const [cover, setCover] = useState<Uint8Array | null>(null)
@@ -82,6 +83,7 @@ export function AddBook() {
           .filter(Boolean),
         description: description.trim(),
         total_chapters: Number(totalChapters),
+        ...(code.trim() ? { code: code.trim().toUpperCase() } : {}),
       }
 
       files.push({ path: `books/${cleanFolder}/meta.json`, content: toJSON(meta) })
@@ -202,13 +204,22 @@ export function AddBook() {
               />
             </Field>
           </div>
-          <Field label="Теги" hint="через запятую">
-            <TextInput
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="docker, devops, containers"
-            />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Теги" hint="через запятую">
+              <TextInput
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="docker, devops, containers"
+              />
+            </Field>
+            <Field label="Код (для презентаций)" hint="в имени папки доклада: DOCKER, REACT">
+              <TextInput
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="DOCKER"
+              />
+            </Field>
+          </div>
           <Field label="Описание">
             <TextArea
               value={description}

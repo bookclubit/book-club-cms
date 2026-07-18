@@ -50,6 +50,7 @@ export function EditEvent() {
   // live-talk
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
+  const [stream, setStream] = useState('')
   const [talks, setTalks] = useState<TalkDraft[]>([])
 
   // общее: завершённость встречи (уводит в архив в miniapp)
@@ -80,6 +81,7 @@ export function EditEvent() {
           : '',
       )
       setChapterSlug(ev.chapter ?? '')
+      setStream(ev.stream ? String(ev.stream) : '')
       setTalks(ev.talks.map((t) => ({ title: t.title, speakerId: t.speaker_id })))
     }
   }, [event.data, index])
@@ -168,6 +170,7 @@ export function EditEvent() {
           }),
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
+          ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
           ...common,
         }
       }
@@ -381,6 +384,15 @@ export function EditEvent() {
                   </Select>
                 </Field>
               </div>
+              <Field label="Номер стрима" hint="в имени папки доклада: BC-<стрим>-… (например 112)">
+                <TextInput
+                  type="number"
+                  min={1}
+                  value={stream}
+                  onChange={(e) => setStream(e.target.value)}
+                  placeholder="112"
+                />
+              </Field>
             </div>
           </Card>
           <Card>
