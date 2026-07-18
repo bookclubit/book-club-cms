@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ImagePicker } from '../components/ImagePicker'
+import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
 import { Button, Card, ErrorBox, Field, Select, TextArea, TextInput } from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
+import { BOARD_OPTS } from '../lib/image'
 import { materialsToText, parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
+import { RAW_BASE } from '../lib/repo'
 import { slugify } from '../lib/slug'
-import type { ClosedChapterEvent, ClubEvent, LiveTalkEvent } from '../types'
+import type { ClosedChapterEvent, ClubEvent, EventModerator, LiveTalkEvent } from '../types'
 
 interface TalkDraft {
   title: string
@@ -40,12 +44,16 @@ export function EditEvent() {
   const [pagesFrom, setPagesFrom] = useState('')
   const [pagesTo, setPagesTo] = useState('')
   const [boardUrl, setBoardUrl] = useState('')
+  const [boardFile, setBoardFile] = useState<Uint8Array | null>(null)
+  const [moderatorIds, setModeratorIds] = useState<string[]>([])
 
   // live-talk
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
-  const [regUrl, setRegUrl] = useState('')
   const [talks, setTalks] = useState<TalkDraft[]>([])
+
+  // общее: завершённость встречи (уводит в архив в miniapp)
+  const [finished, setFinished] = useState(false)
 
   useEffect(() => {
     const ev = event.data
@@ -57,12 +65,14 @@ export function EditEvent() {
     setMaterialsText(materialsToText(ev.materials))
     setYoutube(ev.streams?.youtube ?? '')
     setVk(ev.streams?.vk ?? '')
+    setFinished(ev.finished ?? false)
     if (ev.type === 'closed-chapter') {
       setFolder(index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
       setChapterSlug(ev.chapter)
       setPagesFrom(ev.pages ? String(ev.pages.from) : '')
       setPagesTo(ev.pages ? String(ev.pages.to) : '')
       setBoardUrl(ev.notes_board_url ?? '')
+      setModeratorIds((ev.moderators ?? []).map((m) => m.speaker_id))
     } else {
       setFolder(
         ev.book_id
@@ -70,7 +80,6 @@ export function EditEvent() {
           : '',
       )
       setChapterSlug(ev.chapter ?? '')
-      setRegUrl(ev.registration_url ?? '')
       setTalks(ev.talks.map((t) => ({ title: t.title, speakerId: t.speaker_id })))
     }
   }, [event.data, index])
@@ -101,13 +110,27 @@ export function EditEvent() {
         ...(vk.trim() ? { vk: vk.trim() } : {}),
       }
       const common = {
-        // Meet — только у открытых обсуждений; выступления — чистовая запись.
+        // Meet — только у открытых обсуждений; доклады — чистовая запись.
         ...(kind === 'closed-chapter' && callUrl.trim() ? { call_url: callUrl.trim() } : {}),
         ...(materials.length > 0 ? { materials } : {}),
+        ...(finished ? { finished: true } : {}),
       }
+
+      const extraFiles: FileChange[] = []
 
       let next: ClosedChapterEvent | LiveTalkEvent
       if (kind === 'closed-chapter') {
+        // Доска — ссылка или загруженный файл (media/boards).
+        let boardHref = boardUrl.trim()
+        if (boardFile) {
+          const boardPath = `media/boards/${date}-${slug}.webp`
+          extraFiles.push({ path: boardPath, content: boardFile })
+          boardHref = `${RAW_BASE}/${boardPath}`
+        }
+        const moderators: EventModerator[] = moderatorIds
+          .map((mid) => index.speakers.find((s) => s.id === mid))
+          .filter((s): s is NonNullable<typeof s> => Boolean(s))
+          .map((s) => ({ speaker_id: s.id, name: s.name, avatar: s.avatar }))
         next = {
           id,
           type: 'closed-chapter',
@@ -120,8 +143,9 @@ export function EditEvent() {
           ...(Number(pagesFrom) > 0 && Number(pagesTo) > 0
             ? { pages: { from: Number(pagesFrom), to: Number(pagesTo) } }
             : {}),
-          ...(boardUrl.trim() ? { notes_board_url: boardUrl.trim() } : {}),
+          ...(boardHref ? { notes_board_url: boardHref } : {}),
           ...(Object.keys(streams).length > 0 ? { streams } : {}),
+          ...(moderators.length > 0 ? { moderators } : {}),
           ...common,
         }
       } else {
@@ -142,14 +166,16 @@ export function EditEvent() {
               avatar: speaker.avatar,
             }
           }),
-          ...(regUrl.trim() ? { registration_url: regUrl.trim() } : {}),
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
           ...common,
         }
       }
 
-      const files: FileChange[] = [{ path: newPath, content: toJSON(next) }]
+      const files: FileChange[] = [
+        { path: newPath, content: toJSON(next) },
+        ...extraFiles,
+      ]
       const renamed = newPath !== oldPath
       if (renamed) files.push({ path: oldPath, content: null })
 
@@ -195,9 +221,27 @@ export function EditEvent() {
     <div className="space-y-6">
       <p className="text-sm text-muted">
         Редактирование <code>events/{dir}/{file}</code> · тип:{' '}
-        {kind === 'closed-chapter' ? 'открытое обсуждение' : 'выступления'}. Смена даты
+        {kind === 'closed-chapter' ? 'открытое обсуждение' : 'доклады'}. Смена даты
         или названия перенесёт файл автоматически.
       </p>
+
+      <Card>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={finished}
+            onChange={(e) => setFinished(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span>
+            <span className="block text-sm font-medium">Встреча завершена</span>
+            <span className="block text-xs text-muted">
+              Уводит встречу в архив приложения. Добавьте записи (YouTube/VK)
+              {kind === 'closed-chapter' ? ' и доску' : ''} ниже.
+            </span>
+          </span>
+        </label>
+      </Card>
 
       <Card>
         <div className="space-y-4">
@@ -223,7 +267,7 @@ export function EditEvent() {
           {kind === 'closed-chapter' && (
             <Field
               label="Google Meet (подключиться к обсуждению)"
-              hint="бот выдаст ссылку записавшимся; у выступлений созвона нет — это чистовая запись"
+              hint="бот выдаст ссылку записавшимся; у докладов созвона нет — это чистовая запись"
             >
               <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://meet.google.com/…" />
             </Field>
@@ -277,8 +321,21 @@ export function EditEvent() {
                 <TextInput type="number" value={pagesTo} onChange={(e) => setPagesTo(e.target.value)} />
               </Field>
             </div>
-            <Field label="Доска заметок (Miro и т.п.)">
+            <Field label="Доска для совместной работы — ссылка" hint="Miro, Excalidraw и т.п.; либо загрузите файл ниже">
               <TextInput value={boardUrl} onChange={(e) => setBoardUrl(e.target.value)} />
+            </Field>
+            <ImagePicker
+              label="…или доска файлом"
+              hint="скриншот доски — заменит ссылку выше"
+              opts={BOARD_OPTS}
+              onChange={setBoardFile}
+            />
+            <Field label="Модераторы обсуждения" hint="из числа спикеров — кто ведёт встречу">
+              <ModeratorPicker
+                speakers={index?.speakers ?? []}
+                selected={moderatorIds}
+                onChange={setModeratorIds}
+              />
             </Field>
           </div>
         </Card>
@@ -288,7 +345,10 @@ export function EditEvent() {
         <>
           <Card>
             <div className="space-y-4">
-              <p className="text-sm font-medium">Программа эфира</p>
+              <p className="text-sm font-medium">Программа докладов</p>
+              <p className="text-xs text-muted">
+                Регистрация и заявки спикеров идут через бота — отдельная ссылка не нужна.
+              </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Книга" hint="из глав этой книги бот предложит темы спикерам">
                   <Select
@@ -321,9 +381,6 @@ export function EditEvent() {
                   </Select>
                 </Field>
               </div>
-              <Field label="Ссылка на регистрацию">
-                <TextInput value={regUrl} onChange={(e) => setRegUrl(e.target.value)} />
-              </Field>
             </div>
           </Card>
           <Card>

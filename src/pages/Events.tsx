@@ -48,7 +48,7 @@ export function Events() {
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <span className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted">
-                    {dir === 'closed-chapters' ? 'обсуждение' : 'выступления'}
+                    {dir === 'closed-chapters' ? 'обсуждение' : 'доклады'}
                   </span>
                   <span className="text-sm text-accent">Редактировать</span>
                 </div>

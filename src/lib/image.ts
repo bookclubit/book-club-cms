@@ -76,3 +76,5 @@ export async function fileToWebP(file: File, opts: WebPOptions): Promise<Uint8Ar
 
 export const COVER_OPTS: WebPOptions = { width: 400 }
 export const AVATAR_OPTS: WebPOptions = { width: 400, height: 400 }
+// Доска обсуждения — скриншот, ширина до 1200px с сохранением пропорций.
+export const BOARD_OPTS: WebPOptions = { width: 1200 }

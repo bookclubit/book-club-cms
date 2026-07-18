@@ -1,11 +1,15 @@
 import { useState } from 'react'
+import { ImagePicker } from '../components/ImagePicker'
+import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
 import { Button, Card, Field, Select, TextArea, TextInput } from '../components/ui'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { BOARD_OPTS } from '../lib/image'
 import { parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
+import { RAW_BASE } from '../lib/repo'
 import { slugify } from '../lib/slug'
-import type { ClosedChapterEvent, LiveTalkEvent } from '../types'
+import type { ClosedChapterEvent, EventModerator, LiveTalkEvent } from '../types'
 
 type EventKind = 'closed-chapter' | 'live-talk'
 
@@ -32,11 +36,12 @@ export function AddEvent() {
   const [pagesFrom, setPagesFrom] = useState('')
   const [pagesTo, setPagesTo] = useState('')
   const [boardUrl, setBoardUrl] = useState('')
+  const [boardFile, setBoardFile] = useState<Uint8Array | null>(null)
+  const [moderatorIds, setModeratorIds] = useState<string[]>([])
 
   // live-talk
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
-  const [regUrl, setRegUrl] = useState('')
   const [talks, setTalks] = useState<TalkDraft[]>([{ title: '', speakerId: '' }])
 
   const book = index?.books.find((b) => b.folder === folder)
@@ -63,13 +68,26 @@ export function AddEvent() {
         ...(vk.trim() ? { vk: vk.trim() } : {}),
       }
       const common = {
-        // Meet — только у открытых обсуждений; выступления — чистовая запись.
+        // Meet — только у открытых обсуждений; доклады — чистовая запись.
         ...(kind === 'closed-chapter' && callUrl.trim() ? { call_url: callUrl.trim() } : {}),
         ...(materials.length > 0 ? { materials } : {}),
       }
 
+      const extraFiles: FileChange[] = []
+
       let event: ClosedChapterEvent | LiveTalkEvent
       if (kind === 'closed-chapter') {
+        // Доска — либо ссылка, либо загруженный файл (кладём в media/boards).
+        let boardHref = boardUrl.trim()
+        if (boardFile) {
+          const boardPath = `media/boards/${date}-${slug}.webp`
+          extraFiles.push({ path: boardPath, content: boardFile })
+          boardHref = `${RAW_BASE}/${boardPath}`
+        }
+        const moderators: EventModerator[] = moderatorIds
+          .map((mid) => index.speakers.find((s) => s.id === mid))
+          .filter((s): s is NonNullable<typeof s> => Boolean(s))
+          .map((s) => ({ speaker_id: s.id, name: s.name, avatar: s.avatar }))
         event = {
           id,
           type: 'closed-chapter',
@@ -82,8 +100,9 @@ export function AddEvent() {
           ...(Number(pagesFrom) > 0 && Number(pagesTo) > 0
             ? { pages: { from: Number(pagesFrom), to: Number(pagesTo) } }
             : {}),
-          ...(boardUrl.trim() ? { notes_board_url: boardUrl.trim() } : {}),
+          ...(boardHref ? { notes_board_url: boardHref } : {}),
           ...(Object.keys(streams).length > 0 ? { streams } : {}),
+          ...(moderators.length > 0 ? { moderators } : {}),
           ...common,
         }
       } else {
@@ -104,8 +123,7 @@ export function AddEvent() {
               avatar: speaker.avatar,
             }
           }),
-          ...(regUrl.trim() ? { registration_url: regUrl.trim() } : {}),
-          // Программа эфира: из этой главы бот предлагает темы спикерам.
+          // Программа докладов: из этой главы бот предлагает темы спикерам.
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
           ...common,
@@ -117,6 +135,7 @@ export function AddEvent() {
 
       const files: FileChange[] = [
         { path: filePath, content: toJSON(event) },
+        ...extraFiles,
         { path: 'index.json', content: toJSON(nextIndex) },
       ]
 
@@ -125,8 +144,8 @@ export function AddEvent() {
         title: `feat(events): ${title.trim()} (${date})`,
         body: [
           kind === 'closed-chapter'
-            ? `Закрытая встреча: разбор главы \`${chapterSlug}\` книги **${book!.title}**.`
-            : `Открытый эфир, докладов: ${filledTalks.length}.`,
+            ? `Открытое обсуждение: разбор главы \`${chapterSlug}\` книги **${book!.title}**.`
+            : `Доклады: ${filledTalks.length}.`,
           '',
           `- \`${filePath}\``,
           '- обновлён `index.json`',
@@ -145,7 +164,7 @@ export function AddEvent() {
           <Field label="Тип встречи">
             <Select value={kind} onChange={(e) => setKind(e.target.value as EventKind)}>
               <option value="closed-chapter">Открытое обсуждение — разбор главы</option>
-              <option value="live-talk">Выступления — запись докладов</option>
+              <option value="live-talk">Доклады — записи докладов</option>
             </Select>
           </Field>
           <Field label="Название">
@@ -155,7 +174,7 @@ export function AddEvent() {
               placeholder={
                 kind === 'closed-chapter'
                   ? 'Обсуждение главы 2 «Образы Docker»'
-                  : 'Выступления: Docker на практике'
+                  : 'Доклады: Docker на практике'
               }
             />
           </Field>
@@ -178,7 +197,7 @@ export function AddEvent() {
           {kind === 'closed-chapter' && (
             <Field
               label="Google Meet (подключиться к обсуждению)"
-              hint="бот выдаст ссылку записавшимся; у выступлений созвона нет — это чистовая запись"
+              hint="бот выдаст ссылку записавшимся; у докладов созвона нет — это чистовая запись"
             >
               <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://meet.google.com/…" />
             </Field>
@@ -240,11 +259,24 @@ export function AddEvent() {
                 />
               </Field>
             </div>
-            <Field label="Доска заметок (Miro и т.п.)">
+            <Field label="Доска для совместной работы — ссылка" hint="Miro, Excalidraw и т.п.; либо загрузите файл ниже">
               <TextInput
                 value={boardUrl}
                 onChange={(e) => setBoardUrl(e.target.value)}
                 placeholder="https://miro.com/…"
+              />
+            </Field>
+            <ImagePicker
+              label="…или доска файлом"
+              hint="скриншот доски — сконвертируется в WebP"
+              opts={BOARD_OPTS}
+              onChange={setBoardFile}
+            />
+            <Field label="Модераторы обсуждения" hint="из числа спикеров — кто ведёт встречу">
+              <ModeratorPicker
+                speakers={index?.speakers ?? []}
+                selected={moderatorIds}
+                onChange={setModeratorIds}
               />
             </Field>
           </div>
@@ -255,7 +287,11 @@ export function AddEvent() {
         <>
           <Card>
             <div className="space-y-4">
-              <p className="text-sm font-medium">Программа эфира</p>
+              <p className="text-sm font-medium">Программа докладов</p>
+              <p className="text-xs text-muted">
+                Регистрация на встречу и заявки спикеров идут через бота — отдельная
+                ссылка не нужна.
+              </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Книга" hint="из глав этой книги бот предложит темы спикерам">
                   <Select
@@ -288,9 +324,6 @@ export function AddEvent() {
                   </Select>
                 </Field>
               </div>
-              <Field label="Ссылка на регистрацию">
-                <TextInput value={regUrl} onChange={(e) => setRegUrl(e.target.value)} />
-              </Field>
             </div>
           </Card>
           <Card>

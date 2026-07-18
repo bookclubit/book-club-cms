@@ -8,7 +8,7 @@ const actions = [
   { to: '/books/new', title: 'Добавить книгу', desc: 'Обложка, авторы, описание — meta.json + WebP' },
   { to: '/chapters/new', title: 'Добавить главу', desc: 'Индекс главы chapter.json внутри книги' },
   { to: '/topics/new', title: 'Добавить тему', desc: 'Markdown с видео, инсайтами и мнением спикера' },
-  { to: '/events/new', title: 'Добавить встречу', desc: 'Разбор главы или открытый эфир с докладами' },
+  { to: '/events/new', title: 'Добавить встречу', desc: 'Открытое обсуждение главы или доклады' },
   { to: '/flashcards/new', title: 'Добавить карточки', desc: 'ANKI-карточки для бота, id — автоматически' },
   { to: '/speakers/new', title: 'Добавить спикера', desc: 'Аватарка WebP в media/speakers/' },
 ]

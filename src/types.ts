@@ -77,6 +77,13 @@ export interface EventMaterial {
   url: string
 }
 
+/** Модератор открытого обсуждения — из числа спикеров клуба. */
+export interface EventModerator {
+  speaker_id: string
+  name: string
+  avatar: string
+}
+
 /** «Открытое обсуждение» — разбор главы, прийти может любой (стримы + Meet). */
 export interface ClosedChapterEvent {
   id: string
@@ -88,10 +95,12 @@ export interface ClosedChapterEvent {
   book_id: string
   chapter: string
   pages?: { from: number; to: number }
-  notes_board_url?: string
+  notes_board_url?: string // доска — ссылка или загруженный файл (raw URL)
   call_url?: string
   streams?: { youtube?: string; vk?: string }
+  moderators?: EventModerator[]
   materials?: EventMaterial[]
+  finished?: boolean
 }
 
 export interface LiveTalk {
@@ -110,12 +119,12 @@ export interface LiveTalkEvent {
   timezone: string
   streams: { youtube?: string; vk?: string }
   talks: LiveTalk[]
-  registration_url?: string
   call_url?: string
   materials?: EventMaterial[]
   /** Книга и глава программы эфира — из них бот предлагает темы спикерам. */
   book_id?: string
   chapter?: string
+  finished?: boolean
 }
 
 export type ClubEvent = ClosedChapterEvent | LiveTalkEvent
