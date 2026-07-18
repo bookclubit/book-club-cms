@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ImagePicker } from '../components/ImagePicker'
 import { PublishPanel } from '../components/PublishPanel'
 import { Card, Field, TextInput } from '../components/ui'
-import { AVATAR_OPTS } from '../lib/image'
+import { fetchClaimPhoto, listSpeakerClaims } from '../lib/botApi'
+import { AVATAR_OPTS, fileToWebP } from '../lib/image'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
@@ -11,10 +13,44 @@ export function AddSpeaker() {
   const gh = useDataClient()
   const { data: index } = useIndex(gh)
   const { state, publish, reset } = usePublish()
+  const [params] = useSearchParams()
 
   const [firstName, setFirstName] = useState('')
   const [surname, setSurname] = useState('')
   const [avatar, setAvatar] = useState<Uint8Array | null>(null)
+  const [prefillPreview, setPrefillPreview] = useState<string | null>(null)
+  const [prefillNote, setPrefillNote] = useState<string | null>(null)
+
+  // ?claim=<id> — предзаполнение из заявки спикера (страница «Заявки»).
+  const claimId = Number(params.get('claim'))
+  useEffect(() => {
+    if (!Number.isFinite(claimId) || claimId <= 0) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const claim = (await listSpeakerClaims()).find((c) => c.id === claimId)
+        if (!claim || cancelled) return
+        const parts = (claim.full_name ?? '').trim().split(/\s+/)
+        if (parts.length > 0) setFirstName(parts[0])
+        if (parts.length > 1) setSurname(parts.slice(1).join(' '))
+        setPrefillNote(`Из заявки #${claim.id}: «${claim.topic_title}»`)
+        if (claim.photo_file_id) {
+          const blob = await fetchClaimPhoto(claim.id)
+          const file = new File([blob], 'avatar.jpg', { type: blob.type || 'image/jpeg' })
+          const bytes = await fileToWebP(file, AVATAR_OPTS)
+          if (cancelled) return
+          setAvatar(bytes)
+          setPrefillPreview(URL.createObjectURL(new Blob([bytes.slice()], { type: 'image/webp' })))
+        }
+      } catch (err) {
+        if (!cancelled) setPrefillNote(err instanceof Error ? err.message : String(err))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claimId])
 
   // id формата <фамилия>-<имя>: pomazkov-anton
   const speakerId =
@@ -79,18 +115,37 @@ export function AddSpeaker() {
               />
             </Field>
           </div>
+          {prefillNote && <p className="text-xs text-muted">{prefillNote}</p>}
           {speakerId && (
             <p className="text-xs text-muted">
               id: <code>{speakerId}</code>
               {taken && ' — ⚠️ такой спикер уже есть'}
             </p>
           )}
-          <ImagePicker
-            label="Аватарка"
-            hint="Квадрат 400×400, кроп по центру, WebP"
-            opts={AVATAR_OPTS}
-            onChange={setAvatar}
-          />
+          <div className="flex items-start gap-4">
+            {prefillPreview && (
+              <img
+                src={prefillPreview}
+                alt="фото из заявки"
+                className="h-14 w-14 shrink-0 rounded-full border border-line object-cover"
+              />
+            )}
+            <div className="grow">
+              <ImagePicker
+                label="Аватарка"
+                hint={
+                  prefillPreview
+                    ? 'Фото из заявки уже подставлено — можно заменить'
+                    : 'Квадрат 400×400, кроп по центру, WebP'
+                }
+                opts={AVATAR_OPTS}
+                onChange={(bytes) => {
+                  if (bytes) setPrefillPreview(null)
+                  if (bytes || !prefillPreview) setAvatar(bytes)
+                }}
+              />
+            </div>
+          </div>
         </div>
       </Card>
 

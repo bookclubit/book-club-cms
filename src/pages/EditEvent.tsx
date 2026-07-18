@@ -55,6 +55,8 @@ export function EditEvent() {
     setTime(ev.time)
     setCallUrl(ev.call_url ?? '')
     setMaterialsText(materialsToText(ev.materials))
+    setYoutube(ev.streams?.youtube ?? '')
+    setVk(ev.streams?.vk ?? '')
     if (ev.type === 'closed-chapter') {
       setFolder(index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
       setChapterSlug(ev.chapter)
@@ -68,8 +70,6 @@ export function EditEvent() {
           : '',
       )
       setChapterSlug(ev.chapter ?? '')
-      setYoutube(ev.streams.youtube ?? '')
-      setVk(ev.streams.vk ?? '')
       setRegUrl(ev.registration_url ?? '')
       setTalks(ev.talks.map((t) => ({ title: t.title, speakerId: t.speaker_id })))
     }
@@ -96,8 +96,13 @@ export function EditEvent() {
       const id = `${prefix}-${date}-${slug}`
 
       const materials = parseMaterials(materialsText)
+      const streams = {
+        ...(youtube.trim() ? { youtube: youtube.trim() } : {}),
+        ...(vk.trim() ? { vk: vk.trim() } : {}),
+      }
       const common = {
-        ...(callUrl.trim() ? { call_url: callUrl.trim() } : {}),
+        // Meet — только у открытых обсуждений; выступления — чистовая запись.
+        ...(kind === 'closed-chapter' && callUrl.trim() ? { call_url: callUrl.trim() } : {}),
         ...(materials.length > 0 ? { materials } : {}),
       }
 
@@ -116,6 +121,7 @@ export function EditEvent() {
             ? { pages: { from: Number(pagesFrom), to: Number(pagesTo) } }
             : {}),
           ...(boardUrl.trim() ? { notes_board_url: boardUrl.trim() } : {}),
+          ...(Object.keys(streams).length > 0 ? { streams } : {}),
           ...common,
         }
       } else {
@@ -126,10 +132,7 @@ export function EditEvent() {
           date,
           time,
           timezone: 'Europe/Moscow',
-          streams: {
-            ...(youtube.trim() ? { youtube: youtube.trim() } : {}),
-            ...(vk.trim() ? { vk: vk.trim() } : {}),
-          },
+          streams,
           talks: filledTalks.map((t) => {
             const speaker = index.speakers.find((s) => s.id === t.speakerId)!
             return {
@@ -192,8 +195,8 @@ export function EditEvent() {
     <div className="space-y-6">
       <p className="text-sm text-muted">
         Редактирование <code>events/{dir}/{file}</code> · тип:{' '}
-        {kind === 'closed-chapter' ? 'разбор главы' : 'открытый эфир'}. Смена даты или
-        названия перенесёт файл автоматически.
+        {kind === 'closed-chapter' ? 'открытое обсуждение' : 'выступления'}. Смена даты
+        или названия перенесёт файл автоматически.
       </p>
 
       <Card>
@@ -209,9 +212,22 @@ export function EditEvent() {
               <TextInput type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </Field>
           </div>
-          <Field label="Ссылка на созвон" hint="Zoom / Meet / телеграм-эфир — бот выдаст её записавшимся">
-            <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://…" />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Трансляция YouTube">
+              <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />
+            </Field>
+            <Field label="Трансляция VK">
+              <TextInput value={vk} onChange={(e) => setVk(e.target.value)} />
+            </Field>
+          </div>
+          {kind === 'closed-chapter' && (
+            <Field
+              label="Google Meet (подключиться к обсуждению)"
+              hint="бот выдаст ссылку записавшимся; у выступлений созвона нет — это чистовая запись"
+            >
+              <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://meet.google.com/…" />
+            </Field>
+          )}
           <Field label="Доп. материалы" hint="по одному на строку: «название | ссылка»">
             <TextArea rows={2} value={materialsText} onChange={(e) => setMaterialsText(e.target.value)} />
           </Field>
@@ -303,14 +319,6 @@ export function EditEvent() {
                       </option>
                     ))}
                   </Select>
-                </Field>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Трансляция YouTube">
-                  <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />
-                </Field>
-                <Field label="Трансляция VK">
-                  <TextInput value={vk} onChange={(e) => setVk(e.target.value)} />
                 </Field>
               </div>
               <Field label="Ссылка на регистрацию">

@@ -58,8 +58,13 @@ export function AddEvent() {
       const filePath = `events/${fileDir}/${date}-${slug}.json`
 
       const materials = parseMaterials(materialsText)
+      const streams = {
+        ...(youtube.trim() ? { youtube: youtube.trim() } : {}),
+        ...(vk.trim() ? { vk: vk.trim() } : {}),
+      }
       const common = {
-        ...(callUrl.trim() ? { call_url: callUrl.trim() } : {}),
+        // Meet — только у открытых обсуждений; выступления — чистовая запись.
+        ...(kind === 'closed-chapter' && callUrl.trim() ? { call_url: callUrl.trim() } : {}),
         ...(materials.length > 0 ? { materials } : {}),
       }
 
@@ -78,6 +83,7 @@ export function AddEvent() {
             ? { pages: { from: Number(pagesFrom), to: Number(pagesTo) } }
             : {}),
           ...(boardUrl.trim() ? { notes_board_url: boardUrl.trim() } : {}),
+          ...(Object.keys(streams).length > 0 ? { streams } : {}),
           ...common,
         }
       } else {
@@ -88,10 +94,7 @@ export function AddEvent() {
           date,
           time,
           timezone: 'Europe/Moscow',
-          streams: {
-            ...(youtube.trim() ? { youtube: youtube.trim() } : {}),
-            ...(vk.trim() ? { vk: vk.trim() } : {}),
-          },
+          streams,
           talks: filledTalks.map((t) => {
             const speaker = index.speakers.find((s) => s.id === t.speakerId)!
             return {
@@ -141,8 +144,8 @@ export function AddEvent() {
         <div className="space-y-4">
           <Field label="Тип встречи">
             <Select value={kind} onChange={(e) => setKind(e.target.value as EventKind)}>
-              <option value="closed-chapter">Закрытая — разбор главы</option>
-              <option value="live-talk">Открытый эфир с докладами</option>
+              <option value="closed-chapter">Открытое обсуждение — разбор главы</option>
+              <option value="live-talk">Выступления — запись докладов</option>
             </Select>
           </Field>
           <Field label="Название">
@@ -151,8 +154,8 @@ export function AddEvent() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder={
                 kind === 'closed-chapter'
-                  ? 'Разбор главы 2 «Образы Docker»'
-                  : 'Открытый эфир: Docker на практике'
+                  ? 'Обсуждение главы 2 «Образы Docker»'
+                  : 'Выступления: Docker на практике'
               }
             />
           </Field>
@@ -164,9 +167,22 @@ export function AddEvent() {
               <TextInput type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </Field>
           </div>
-          <Field label="Ссылка на созвон" hint="Zoom / Meet / телеграм-эфир — бот выдаст её записавшимся">
-            <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://…" />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Трансляция YouTube">
+              <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />
+            </Field>
+            <Field label="Трансляция VK">
+              <TextInput value={vk} onChange={(e) => setVk(e.target.value)} />
+            </Field>
+          </div>
+          {kind === 'closed-chapter' && (
+            <Field
+              label="Google Meet (подключиться к обсуждению)"
+              hint="бот выдаст ссылку записавшимся; у выступлений созвона нет — это чистовая запись"
+            >
+              <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://meet.google.com/…" />
+            </Field>
+          )}
           <Field label="Доп. материалы" hint="по одному на строку: «название | ссылка»">
             <TextArea rows={2} value={materialsText} onChange={(e) => setMaterialsText(e.target.value)} />
           </Field>
@@ -270,14 +286,6 @@ export function AddEvent() {
                       </option>
                     ))}
                   </Select>
-                </Field>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Трансляция YouTube">
-                  <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />
-                </Field>
-                <Field label="Трансляция VK">
-                  <TextInput value={vk} onChange={(e) => setVk(e.target.value)} />
                 </Field>
               </div>
               <Field label="Ссылка на регистрацию">

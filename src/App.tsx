@@ -9,6 +9,7 @@ import { AddSpeaker } from './pages/AddSpeaker'
 import { AddTopic } from './pages/AddTopic'
 import { Books } from './pages/Books'
 import { Chapters } from './pages/Chapters'
+import { Claims } from './pages/Claims'
 import { Dashboard } from './pages/Dashboard'
 import { EditBook } from './pages/EditBook'
 import { EditChapter } from './pages/EditChapter'
@@ -64,6 +65,8 @@ export default function App() {
         <Route path="/speakers" element={<Speakers />} />
         <Route path="/speakers/new" element={<AddSpeaker />} />
         <Route path="/speakers/:id/edit" element={<EditSpeaker />} />
+
+        <Route path="/claims" element={<Claims />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

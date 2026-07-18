@@ -9,6 +9,7 @@ const links = [
   { to: '/events', label: 'Встречи' },
   { to: '/flashcards', label: 'Карточки' },
   { to: '/speakers', label: 'Спикеры' },
+  { to: '/claims', label: 'Заявки' },
 ]
 
 export function Layout() {

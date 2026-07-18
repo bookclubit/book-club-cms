@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, ErrorBox, Field, TextInput } from '../components/ui'
 import { setToken } from '../lib/auth'
+import { getBotToken, setBotToken } from '../lib/botApi'
 import { dataClient } from '../lib/repo'
 
 export function Login() {
   const [value, setValue] = useState('')
+  const [botToken, setBotTokenValue] = useState(getBotToken() ?? '')
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   const navigate = useNavigate()
@@ -26,6 +28,7 @@ export function Login() {
         )
       }
       setToken(token)
+      setBotToken(botToken)
       navigate(location.state?.from ?? '/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -55,6 +58,18 @@ export function Login() {
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void submit()}
               autoFocus
+            />
+          </Field>
+          <Field
+            label="Админ-токен бота"
+            hint="необязательно; нужен для модерации заявок спикеров (секрет ADMIN_API_TOKEN воркера)"
+          >
+            <TextInput
+              type="password"
+              placeholder="токен API бота"
+              value={botToken}
+              onChange={(e) => setBotTokenValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void submit()}
             />
           </Field>
           {error && <ErrorBox>{error}</ErrorBox>}

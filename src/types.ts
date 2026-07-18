@@ -77,6 +77,7 @@ export interface EventMaterial {
   url: string
 }
 
+/** «Открытое обсуждение» — разбор главы, прийти может любой (стримы + Meet). */
 export interface ClosedChapterEvent {
   id: string
   type: 'closed-chapter'
@@ -89,6 +90,7 @@ export interface ClosedChapterEvent {
   pages?: { from: number; to: number }
   notes_board_url?: string
   call_url?: string
+  streams?: { youtube?: string; vk?: string }
   materials?: EventMaterial[]
 }
 
