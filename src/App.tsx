@@ -19,6 +19,7 @@ import { EditTopic } from './pages/EditTopic'
 import { Events } from './pages/Events'
 import { Flashcards } from './pages/Flashcards'
 import { Login } from './pages/Login'
+import { Settings } from './pages/Settings'
 import { Speakers } from './pages/Speakers'
 import { Topics } from './pages/Topics'
 
@@ -67,6 +68,8 @@ export default function App() {
         <Route path="/speakers/:id/edit" element={<EditSpeaker />} />
 
         <Route path="/claims" element={<Claims />} />
+
+        <Route path="/settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

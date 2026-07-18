@@ -147,3 +147,20 @@ export interface ContentIndex {
   events: string[]
   speakers: IndexSpeaker[]
 }
+
+// Настройки клуба (settings.json в корне book-club-data): ссылки на соцсети.
+// Общие параметры, не привязанные к контенту; miniapp читает при старте.
+export type SocialPlatform = 'telegram' | 'youtube' | 'vk' | 'boosty' | 'github'
+
+export const SOCIAL_PLATFORMS: Array<{ id: SocialPlatform; label: string; placeholder: string }> = [
+  { id: 'telegram', label: 'Telegram', placeholder: 'https://t.me/…' },
+  { id: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@…' },
+  { id: 'vk', label: 'VK', placeholder: 'https://vk.com/…' },
+  { id: 'boosty', label: 'Boosty', placeholder: 'https://boosty.to/…' },
+  { id: 'github', label: 'GitHub', placeholder: 'https://github.com/…' },
+]
+
+export interface ClubSettings {
+  version: 1
+  socials: Partial<Record<SocialPlatform, string>>
+}

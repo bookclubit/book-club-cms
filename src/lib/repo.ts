@@ -5,6 +5,7 @@
 import type {
   BookMeta,
   Chapter,
+  ClubSettings,
   ContentIndex,
   Flashcard,
   IndexBook,
@@ -104,4 +105,10 @@ export async function loadIndex(gh: GitHubClient): Promise<ContentIndex> {
   const existing = await gh.getFileJson<ContentIndex>('index.json')
   if (existing) return existing
   return buildIndexFromRepo(gh)
+}
+
+// Настройки клуба (settings.json). Файла может ещё не быть — тогда пустые.
+export async function loadSettings(gh: GitHubClient): Promise<ClubSettings> {
+  const existing = await gh.getFileJson<ClubSettings>('settings.json')
+  return existing ?? { version: 1, socials: {} }
 }

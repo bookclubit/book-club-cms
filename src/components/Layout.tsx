@@ -10,6 +10,7 @@ const links = [
   { to: '/flashcards', label: 'Карточки' },
   { to: '/speakers', label: 'Спикеры' },
   { to: '/claims', label: 'Заявки' },
+  { to: '/settings', label: 'Настройки' },
 ]
 
 export function Layout() {
