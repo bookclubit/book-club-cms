@@ -26,6 +26,7 @@ export interface SpeakerClaim {
   full_name: string | null
   photo_file_id: string | null
   speaker_id: string | null // каталожный спикер, если бот узнал заявителя по Telegram
+  slides_url: string | null // ссылка на презентацию (talks)
   status: 'pending' | 'confirmed'
   created_at: number
 }
@@ -59,6 +60,47 @@ export async function decideClaim(id: number, action: 'confirm' | 'decline'): Pr
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, action }),
   })
+}
+
+async function claimAction(body: Record<string, unknown>): Promise<void> {
+  await adminFetch('/api/admin/claims', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+// Единый источник занятости — D1. CMS назначает/освобождает темы теми же
+// заявками, что и бот (см. /api/admin/claims в боте).
+
+/** Назначить спикера каталога на тему — создаёт подтверждённую заявку в D1. */
+export async function assignClaim(opts: {
+  topicId: string
+  topicTitle: string
+  bookId: string
+  chapter: string
+  speakerId: string
+  speakerName: string
+}): Promise<void> {
+  await claimAction({
+    action: 'assign',
+    topic_id: opts.topicId,
+    topic_title: opts.topicTitle,
+    book_id: opts.bookId,
+    chapter: opts.chapter,
+    speaker_id: opts.speakerId,
+    speaker_name: opts.speakerName,
+  })
+}
+
+/** Освободить тему — удаляет заявку по topic_id. */
+export async function releaseClaim(topicId: string): Promise<void> {
+  await claimAction({ action: 'release', topic_id: topicId })
+}
+
+/** Проставить ссылку на презентацию у темы. */
+export async function setClaimSlides(topicId: string, slidesUrl: string): Promise<void> {
+  await claimAction({ action: 'slides', topic_id: topicId, slides_url: slidesUrl })
 }
 
 /** Фото спикера из Telegram (JPEG) — для конвертации в WebP при оформлении. */

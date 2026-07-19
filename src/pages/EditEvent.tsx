@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { EventTopicClaims } from '../components/EventTopicClaims'
 import { ImagePicker } from '../components/ImagePicker'
 import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
-import { TalkProgram, type TalkAssignment, type TalkRow } from '../components/TalkProgram'
 import { Card, ErrorBox, Field, Select, TextArea, TextInput } from '../components/ui'
 import { getToken } from '../lib/auth'
+import {
+  assignClaim,
+  getBotToken,
+  listSpeakerClaims,
+  releaseClaim,
+  setClaimSlides,
+  type SpeakerClaim,
+} from '../lib/botApi'
 import { useChapterTopics, useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { BOARD_OPTS } from '../lib/image'
 import { materialsToText, parseMaterials } from '../lib/materials'
@@ -49,13 +57,14 @@ export function EditEvent() {
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
   const [stream, setStream] = useState('')
-  // Назначения спикеров темам главы (ключ — id темы или `off:<название>`).
-  const [assign, setAssign] = useState<Record<string, TalkAssignment>>({})
-  // Устаревшие доклады, чьих тем нет в текущей главе, — чтобы не потерять их.
-  const [offRows, setOffRows] = useState<TalkRow[]>([])
 
   // общее: завершённость встречи (уводит в архив в miniapp)
   const [finished, setFinished] = useState(false)
+
+  // Занятость тем — единый источник в D1 (заявки бота). Грузим и меняем их же.
+  const [claims, setClaims] = useState<SpeakerClaim[]>([])
+  const [claimsMsg, setClaimsMsg] = useState<string | null>(null)
+  const [busyTopic, setBusyTopic] = useState<string | null>(null)
 
   // генерация презентации доклада (repository_dispatch в talks)
   const [genId, setGenId] = useState<string | null>(null)
@@ -100,29 +109,22 @@ export function EditEvent() {
     kind === 'live-talk',
   )
 
-  // Раскладываем сохранённые доклады по темам главы: совпадение по topic_id или
-  // названию. Доклады без темы в главе — в offRows (сохраняем как «вне плана»).
-  useEffect(() => {
-    const ev = event.data
-    if (!ev || ev.type !== 'live-talk' || topics === null) return
-    const nextAssign: Record<string, TalkAssignment> = {}
-    const offs: TalkRow[] = []
-    for (const t of ev.talks) {
-      const topic = topics.find((x) => x.id === t.topic_id || x.title === t.title)
-      const id = topic ? topic.id : `off:${t.title}`
-      if (!topic) offs.push({ id, title: t.title, offPlan: true })
-      nextAssign[id] = { speakerId: t.speaker_id, slidesUrl: t.slides_url ?? '' }
+  // Заявки этой встречи из D1 (единый источник занятости) — по книге и главе.
+  const loadClaims = useCallback(async () => {
+    if (kind !== 'live-talk' || !book || !chapterSlug || !getBotToken()) return
+    try {
+      const all = await listSpeakerClaims()
+      setClaims(all.filter((c) => c.book_id === book.id && c.chapter === chapterSlug))
+    } catch (e) {
+      setClaimsMsg(e instanceof Error ? e.message : String(e))
     }
-    setAssign(nextAssign)
-    setOffRows(offs)
-  }, [event.data, topics])
+  }, [kind, book, chapterSlug])
 
-  // Строки программы: темы главы + устаревшие доклады вне плана.
-  const rows: TalkRow[] = [
-    ...(topics ?? []).map((t) => ({ id: t.id, title: t.title })),
-    ...offRows,
-  ]
-  const program = rows.filter((r) => assign[r.id]?.speakerId)
+  useEffect(() => {
+    void loadClaims()
+  }, [loadClaims])
+
+  const claimByTopic = new Map(claims.filter((c) => c.topic_id).map((c) => [c.topic_id!, c]))
 
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
   // Эфир может быть и без докладов — спикеры записываются через бота.
@@ -195,19 +197,8 @@ export function EditEvent() {
           time,
           timezone: 'Europe/Moscow',
           streams,
-          talks: program.map((r) => {
-            const a = assign[r.id]
-            const speaker = index.speakers.find((s) => s.id === a.speakerId)!
-            const topic = topics?.find((t) => t.id === r.id)
-            return {
-              title: r.title,
-              speaker: speaker.name,
-              speaker_id: speaker.id,
-              avatar: speaker.avatar,
-              ...(topic ? { topic_id: topic.id } : {}),
-              ...(a.slidesUrl.trim() ? { slides_url: a.slidesUrl.trim() } : {}),
-            }
-          }),
+          // Занятость тем — в заявках D1 (единый источник), не в event.talks.
+          talks: [],
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
           ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
@@ -249,18 +240,56 @@ export function EditEvent() {
     })
   }
 
-  // Генерация презентации доклада: считает URL, подставляет и запускает PR в talks.
-  async function generateTalk(rowId: string) {
-    const a = assign[rowId]
-    const topic = topics?.find((t) => t.id === rowId)
+  // Назначить спикера каталога на тему — создаёт заявку в D1 (единый источник).
+  async function handleAssign(topicId: string, topicTitle: string, speakerId: string) {
+    if (!book || !chapterSlug) return
+    const speaker = index?.speakers.find((s) => s.id === speakerId)
+    if (!speaker) return
+    setClaimsMsg(null)
+    setBusyTopic(topicId)
+    try {
+      await assignClaim({
+        topicId,
+        topicTitle,
+        bookId: book.id,
+        chapter: chapterSlug,
+        speakerId: speaker.id,
+        speakerName: speaker.name,
+      })
+      await loadClaims()
+    } catch (e) {
+      setClaimsMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusyTopic(null)
+    }
+  }
+
+  // Освободить тему — удаляет заявку D1.
+  async function handleFree(topicId: string) {
+    setClaimsMsg(null)
+    setBusyTopic(topicId)
+    try {
+      await releaseClaim(topicId)
+      await loadClaims()
+    } catch (e) {
+      setClaimsMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusyTopic(null)
+    }
+  }
+
+  // Генерация презентации: считает URL, запускает PR в talks и пишет ссылку в заявку.
+  async function generateTalk(topicId: string) {
+    const topic = topics?.find((t) => t.id === topicId)
+    const claim = claimByTopic.get(topicId)
     setGenMsg(null)
     if (!book) return setGenMsg('Сначала выберите книгу')
     if (!chapterSlug) return setGenMsg('Выберите главу')
     if (!topic) return setGenMsg('Презентацию можно сгенерировать только для темы из плана главы')
-    if (!a?.speakerId) return setGenMsg('Назначьте спикера теме')
+    if (!claim?.speaker_id) return setGenMsg('У темы нет каталожного спикера')
     if (!(Number(stream) > 0)) return setGenMsg('Укажите номер стрима')
 
-    setGenId(rowId)
+    setGenId(topicId)
     try {
       const meta = await loadBookMeta(gh, book.folder)
       if (!meta?.code) throw new Error('У книги нет кода (задайте в форме книги: DOCKER, REACT…)')
@@ -271,18 +300,18 @@ export function EditEvent() {
         stream: Number(stream),
         code: meta.code,
         chapterOrder: chapter.order,
-        speakerId: a.speakerId,
+        speakerId: claim.speaker_id,
       })
-      setAssign((prev) => ({ ...prev, [rowId]: { ...prev[rowId], slidesUrl: url } }))
-
       await dispatchNewTalk(getToken() ?? '', {
         book: book.folder,
         chapter: chapterSlug,
         topic: topic.title,
-        speaker: a.speakerId,
+        speaker: claim.speaker_id,
         stream: Number(stream),
       })
-      setGenMsg(`✓ Запущена генерация. PR появится в book-club-talks, слайды: ${url}. Сохраните встречу, чтобы ссылка попала в приложение.`)
+      await setClaimSlides(topicId, url)
+      await loadClaims()
+      setGenMsg(`✓ Запущена генерация. PR появится в book-club-talks, слайды: ${url}`)
     } catch (e) {
       setGenMsg(e instanceof Error ? e.message : String(e))
     } finally {
@@ -486,30 +515,29 @@ export function EditEvent() {
           <Card>
             <p className="mb-1 text-sm font-medium">Темы главы</p>
             <p className="mb-4 text-xs text-muted">
-              Назначь спикера теме — «Создать презентацию» соберёт доклад из
-              book-club-data и откроет PR в book-club-talks; ссылка на слайды подставится
-              рядом (сохрани встречу, чтобы она попала в приложение).
+              Занятость тем — единый источник в боте (D1): «Освободить» удаляет заявку,
+              назначение создаёт её. Изменения применяются сразу, без сохранения встречи.
+              «Создать презентацию» доступна для каталожного спикера.
             </p>
-            <TalkProgram
-              chapterSelected={Boolean(book && chapterSlug)}
-              loading={topicsLoading}
-              rows={rows}
-              speakers={index?.speakers ?? []}
-              assignments={assign}
-              onSpeaker={(id, speakerId) =>
-                setAssign((p) => ({
-                  ...p,
-                  [id]: { ...(p[id] ?? { speakerId: '', slidesUrl: '' }), speakerId },
-                }))
-              }
-              onSlides={(id, url) =>
-                setAssign((p) => ({
-                  ...p,
-                  [id]: { ...(p[id] ?? { speakerId: '', slidesUrl: '' }), slidesUrl: url },
-                }))
-              }
-              generate={{ run: generateTalk, busyId: genId, message: genMsg }}
-            />
+            {!getBotToken() ? (
+              <p className="text-sm text-muted">
+                Для управления темами нужен админ-токен бота (задайте на странице входа).
+              </p>
+            ) : (
+              <EventTopicClaims
+                chapterSelected={Boolean(book && chapterSlug)}
+                loading={topicsLoading}
+                topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
+                claimByTopic={claimByTopic}
+                speakers={index?.speakers ?? []}
+                busyTopic={busyTopic}
+                genBusyId={genId}
+                message={claimsMsg ?? genMsg}
+                onAssign={handleAssign}
+                onFree={handleFree}
+                onGenerate={generateTalk}
+              />
+            )}
           </Card>
         </>
       )}

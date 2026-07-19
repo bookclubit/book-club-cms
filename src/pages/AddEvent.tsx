@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { ImagePicker } from '../components/ImagePicker'
 import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
-import { TalkProgram, type TalkAssignment } from '../components/TalkProgram'
 import { Card, Field, Select, TextArea, TextInput } from '../components/ui'
-import { useChapterTopics, useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { BOARD_OPTS } from '../lib/image'
 import { parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
@@ -39,21 +38,9 @@ export function AddEvent() {
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
   const [stream, setStream] = useState('')
-  // Назначения спикеров темам главы (ключ — id темы).
-  const [assign, setAssign] = useState<Record<string, TalkAssignment>>({})
 
   const book = index?.books.find((b) => b.folder === folder)
   const slug = slugify(title)
-
-  // Темы выбранной главы — слоты докладов эфира.
-  const { topics, loading: topicsLoading } = useChapterTopics(
-    gh,
-    folder,
-    chapterSlug,
-    kind === 'live-talk',
-  )
-  // Доклады эфира — темы главы, которым назначен спикер.
-  const program = (topics ?? []).filter((t) => assign[t.id]?.speakerId)
 
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
   // Эфир можно создать и без докладов: спикеры запишутся через бота,
@@ -122,16 +109,9 @@ export function AddEvent() {
           time,
           timezone: 'Europe/Moscow',
           streams,
-          talks: program.map((topic) => {
-            const speaker = index.speakers.find((s) => s.id === assign[topic.id].speakerId)!
-            return {
-              title: topic.title,
-              speaker: speaker.name,
-              speaker_id: speaker.id,
-              avatar: speaker.avatar,
-              topic_id: topic.id,
-            }
-          }),
+          // Занятость тем живёт в заявках D1 (единый источник); спикеры
+          // назначаются после создания встречи — в редактировании.
+          talks: [],
           // Программа докладов: из этой главы бот предлагает темы спикерам.
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
@@ -155,7 +135,7 @@ export function AddEvent() {
         body: [
           kind === 'closed-chapter'
             ? `Открытое обсуждение: разбор главы \`${chapterSlug}\` книги **${book!.title}**.`
-            : `Доклады: ${program.length} из ${topics?.length ?? 0} тем главы.`,
+            : `Доклады по главе — спикеры назначаются через бота/редактирование.`,
           '',
           `- \`${filePath}\``,
           '- обновлён `index.json`',
@@ -354,23 +334,11 @@ export function AddEvent() {
           </Card>
           <Card>
             <p className="mb-1 text-sm font-medium">Темы главы</p>
-            <p className="mb-4 text-xs text-muted">
-              Все темы выбранной главы — слоты докладов. Обычно спикеры записываются
-              через бота; при желании можно назначить спикера теме сразу.
+            <p className="text-xs text-muted">
+              Спикеры берут темы через бота (кнопка «Стать спикером»), а назначить или
+              освободить тему можно после создания встречи — на странице её
+              редактирования. Занятость тем — единый источник в боте (D1).
             </p>
-            <TalkProgram
-              chapterSelected={Boolean(book && chapterSlug)}
-              loading={topicsLoading}
-              rows={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
-              speakers={index?.speakers ?? []}
-              assignments={assign}
-              onSpeaker={(id, speakerId) =>
-                setAssign((p) => ({
-                  ...p,
-                  [id]: { ...(p[id] ?? { speakerId: '', slidesUrl: '' }), speakerId },
-                }))
-              }
-            />
           </Card>
         </>
       )}
