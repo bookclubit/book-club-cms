@@ -156,9 +156,13 @@ export function Claims() {
                     @{claim.username}
                   </a>
                 )}
-                {claim.speaker_id && (
+                {claim.speaker_id ? (
                   <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                    ✓ в каталоге
+                    ✓ узнан по Telegram
+                  </span>
+                ) : (
+                  <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    личность не проверена
                   </span>
                 )}
               </p>
