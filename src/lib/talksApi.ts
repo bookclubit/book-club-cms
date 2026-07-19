@@ -3,7 +3,7 @@
 // вычисление детерминированного URL опубликованной презентации.
 
 import type { SpeakerClaim } from './botApi'
-import { setClaimSlides } from './botApi'
+import { listSpeakerClaims, setClaimSlides } from './botApi'
 import { GitHubClient } from './github'
 import { loadBookMeta, loadChapter } from './repo'
 import type { ContentIndex, LiveTalkEvent } from '../types'
@@ -51,6 +51,31 @@ export function slidesUrl(opts: {
   return `https://${parts.join('-').toLowerCase()}.pages.dev`
 }
 
+// Порядковый номер темы внутри главы (хвост topic_id: «...-1-4» → 4).
+function topicOrder(topicId: string): number {
+  const n = Number(topicId.split('-').pop())
+  return Number.isFinite(n) ? n : 0
+}
+
+// Суффикс seq для имени папки доклада. Нужен, только когда у ОДНОГО спикера в
+// этой главе несколько тем — иначе папки/URL совпадут (BC-<стрим>-<КНИГА>-<глава>-<ФАМИЛИЯ>
+// темы не различает). seq = порядок темы среди тем этого спикера (1-based, по topic_id).
+// Одна тема у спикера → без суффикса (чистое имя, как раньше).
+function seqForClaim(claim: SpeakerClaim, all: SpeakerClaim[]): string | undefined {
+  const siblings = all
+    .filter(
+      (c) =>
+        c.topic_id &&
+        c.speaker_id === claim.speaker_id &&
+        c.book_id === claim.book_id &&
+        c.chapter === claim.chapter,
+    )
+    .sort((a, b) => topicOrder(a.topic_id!) - topicOrder(b.topic_id!))
+  if (siblings.length <= 1) return undefined
+  const idx = siblings.findIndex((c) => c.topic_id === claim.topic_id)
+  return String(idx + 1)
+}
+
 // Номер стрима встречи-«доклады» по книге+главе (из JSON событий).
 async function findStream(
   gh: GitHubClient,
@@ -94,11 +119,15 @@ export async function generateTalkForClaim(
   const stream = await findStream(gh, index, claim.book_id, claim.chapter)
   if (!stream) throw new Error('У встречи не задан номер стрима — укажите его в форме встречи')
 
+  // Несколько тем одного спикера в главе → уникальный суффикс, иначе папки совпадут.
+  const seq = seqForClaim(claim, await listSpeakerClaims())
+
   const url = slidesUrl({
     stream,
     code: meta.code,
     chapterOrder: chapter.order,
     speakerId: claim.speaker_id,
+    seq,
   })
   await dispatchNewTalk(githubToken, {
     book: book.folder,
@@ -106,6 +135,7 @@ export async function generateTalkForClaim(
     topic: claim.topic_title,
     speaker: claim.speaker_id,
     stream,
+    seq,
   })
   await setClaimSlides(claim.topic_id, url)
   return url
