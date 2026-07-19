@@ -2,7 +2,11 @@
 // доклада (repository_dispatch → workflow generate-talk.yml открывает PR) и
 // вычисление детерминированного URL опубликованной презентации.
 
+import type { SpeakerClaim } from './botApi'
+import { setClaimSlides } from './botApi'
 import { GitHubClient } from './github'
+import { loadBookMeta, loadChapter } from './repo'
+import type { ContentIndex, LiveTalkEvent } from '../types'
 
 export const TALKS_OWNER = 'bookclubit'
 export const TALKS_REPO = 'book-club-talks'
@@ -45,4 +49,64 @@ export function slidesUrl(opts: {
   const parts = ['BC', String(opts.stream), opts.code, String(opts.chapterOrder), surname]
   if (opts.seq) parts.push(opts.seq)
   return `https://${parts.join('-').toLowerCase()}.pages.dev`
+}
+
+// Номер стрима встречи-«доклады» по книге+главе (из JSON событий).
+async function findStream(
+  gh: GitHubClient,
+  index: ContentIndex,
+  bookId: string,
+  chapter: string,
+): Promise<number | null> {
+  for (const path of index.events.filter((p) => p.startsWith('live-talks/'))) {
+    const ev = await gh.getFileJson<LiveTalkEvent>(`events/${path}`)
+    if (ev?.book_id === bookId && ev.chapter === chapter && ev.stream) return ev.stream
+  }
+  return null
+}
+
+/**
+ * Генерация презентации по заявке (единый источник — D1): считает URL, открывает
+ * PR в book-club-talks и проставляет slides_url в заявку (бот уведомит спикера).
+ * Возвращает URL слайдов. Бросает понятную ошибку, если данных не хватает.
+ */
+export async function generateTalkForClaim(
+  gh: GitHubClient,
+  index: ContentIndex,
+  claim: SpeakerClaim,
+  githubToken: string,
+): Promise<string> {
+  if (!claim.topic_id) throw new Error('Тема вне плана — генерация недоступна')
+  if (!claim.speaker_id) {
+    throw new Error('У заявки нет каталожного спикера (укажите Telegram спикера, чтобы связать)')
+  }
+  if (!claim.book_id || !claim.chapter) throw new Error('У заявки нет книги/главы')
+
+  const book = index.books.find((b) => b.id === claim.book_id)
+  if (!book) throw new Error('Книга заявки не найдена в реестре')
+
+  const meta = await loadBookMeta(gh, book.folder)
+  if (!meta?.code) throw new Error('У книги нет кода (задайте в форме книги: DOCKER, REACT…)')
+
+  const chapter = await loadChapter(gh, book.folder, claim.chapter)
+  if (!chapter) throw new Error('Глава не найдена в book-club-data')
+
+  const stream = await findStream(gh, index, claim.book_id, claim.chapter)
+  if (!stream) throw new Error('У встречи не задан номер стрима — укажите его в форме встречи')
+
+  const url = slidesUrl({
+    stream,
+    code: meta.code,
+    chapterOrder: chapter.order,
+    speakerId: claim.speaker_id,
+  })
+  await dispatchNewTalk(githubToken, {
+    book: book.folder,
+    chapter: claim.chapter,
+    topic: claim.topic_title,
+    speaker: claim.speaker_id,
+    stream,
+  })
+  await setClaimSlides(claim.topic_id, url)
+  return url
 }

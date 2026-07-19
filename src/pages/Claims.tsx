@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, ErrorBox, SectionTitle } from '../components/ui'
+import { getToken } from '../lib/auth'
 import {
   decideClaim,
   fetchClaimPhoto,
@@ -8,14 +9,20 @@ import {
   listSpeakerClaims,
   type SpeakerClaim,
 } from '../lib/botApi'
+import { useDataClient, useIndex } from '../lib/hooks'
+import { generateTalkForClaim } from '../lib/talksApi'
 
 // Модерация заявок спикеров (данные — из D1 бота, TG у админа лишь уведомляшка).
-// Подтвердить/отклонить → бот сам напишет спикеру. «Оформить спикером» ведёт
+// Подтвердить → бот пишет спикеру и запускается генерация презентации (PR в
+// book-club-talks, ссылка проставляется в заявку). «Оформить спикером» ведёт
 // в предзаполненную форму спикера (фото подтянется и сконвертируется в WebP).
 export function Claims() {
+  const gh = useDataClient()
+  const { data: index } = useIndex(gh)
   const [claims, setClaims] = useState<SpeakerClaim[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
+  const [genMsg, setGenMsg] = useState<string | null>(null)
   const [photos, setPhotos] = useState<Record<number, string>>({})
 
   const reload = useCallback(() => {
@@ -41,10 +48,38 @@ export function Claims() {
     }
   }, [claims, photos])
 
+  // Генерация презентации по заявке (PR в talks + ссылка в заявку; бот уведомит).
+  async function generate(claim: SpeakerClaim) {
+    setGenMsg(null)
+    setBusy(claim.id)
+    try {
+      if (!index) throw new Error('Реестр ещё грузится — повторите')
+      const url = await generateTalkForClaim(gh, index, claim, getToken() ?? '')
+      setGenMsg(`✓ Презентация запущена: ${url}. PR появится в book-club-talks, спикеру ушла инструкция.`)
+      reload()
+    } catch (err) {
+      setGenMsg(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function decide(claim: SpeakerClaim, action: 'confirm' | 'decline') {
     setBusy(claim.id)
     try {
       await decideClaim(claim.id, action)
+      // Подтверждение сразу запускает генерацию презентации (если возможно).
+      if (action === 'confirm' && claim.topic_id && claim.speaker_id) {
+        try {
+          if (!index) throw new Error('Реестр ещё грузится')
+          const url = await generateTalkForClaim(gh, index, claim, getToken() ?? '')
+          setGenMsg(`✓ Подтверждено, презентация запущена: ${url}`)
+        } catch (genErr) {
+          setGenMsg(
+            `Подтверждено, но презентацию не сгенерировать: ${genErr instanceof Error ? genErr.message : String(genErr)}`,
+          )
+        }
+      }
       reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -128,10 +163,29 @@ export function Claims() {
             </span>
           </div>
 
+          {claim.slides_url && (
+            <p className="mt-3 text-sm">
+              🎤 Презентация:{' '}
+              <a
+                href={claim.slides_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent underline"
+              >
+                {claim.slides_url}
+              </a>
+            </p>
+          )}
+
           <div className="mt-4 flex flex-wrap gap-2">
             {claim.status === 'pending' && (
               <Button disabled={busy === claim.id} onClick={() => void decide(claim, 'confirm')}>
-                ✅ Подтвердить
+                ✅ Подтвердить{claim.speaker_id ? ' и сгенерировать' : ''}
+              </Button>
+            )}
+            {claim.status === 'confirmed' && claim.speaker_id && !claim.slides_url && (
+              <Button disabled={busy === claim.id} onClick={() => void generate(claim)}>
+                🎤 Сгенерировать презентацию
               </Button>
             )}
             {claim.status === 'confirmed' && !claim.speaker_id && (
@@ -141,11 +195,6 @@ export function Claims() {
               >
                 Оформить спикером
               </Link>
-            )}
-            {claim.status === 'confirmed' && claim.speaker_id && (
-              <span className="self-center text-sm text-muted">
-                Спикер уже в каталоге — оформлять не нужно.
-              </span>
             )}
             <Button
               variant="danger"
@@ -157,6 +206,8 @@ export function Claims() {
           </div>
         </div>
       ))}
+
+      {genMsg && <p className="text-sm text-muted">{genMsg}</p>}
     </div>
   )
 }
