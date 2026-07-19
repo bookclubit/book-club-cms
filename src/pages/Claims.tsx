@@ -10,6 +10,7 @@ import {
   type SpeakerClaim,
 } from '../lib/botApi'
 import { useDataClient, useIndex } from '../lib/hooks'
+import { mediaUrl } from '../lib/repo'
 import { cleanupTalkForClaim, generateTalkForClaim } from '../lib/talksApi'
 
 // Модерация заявок спикеров (данные — из D1 бота, TG у админа лишь уведомляшка).
@@ -118,12 +119,19 @@ export function Claims() {
         <p className="text-sm text-muted">Заявок нет. Участники подают их боту командой /speaker.</p>
       )}
 
-      {claims?.map((claim) => (
+      {claims?.map((claim) => {
+        // Аватар: фото из заявки (если прислали) либо каталожный по speaker_id
+        // (узнанные по Telegram фото не присылают — берём из каталога).
+        const catalogAvatar = claim.speaker_id
+          ? mediaUrl(index?.speakers?.find((s) => s.id === claim.speaker_id)?.avatar)
+          : undefined
+        const avatarSrc = photos[claim.id] ?? catalogAvatar
+        return (
         <div key={claim.id} className="rounded-2xl border border-line bg-white p-5">
           <div className="flex items-start gap-4">
-            {photos[claim.id] ? (
+            {avatarSrc ? (
               <img
-                src={photos[claim.id]}
+                src={avatarSrc}
                 alt=""
                 className="h-14 w-14 shrink-0 rounded-full border border-line object-cover"
               />
@@ -220,7 +228,8 @@ export function Claims() {
             </Button>
           </div>
         </div>
-      ))}
+        )
+      })}
 
       {genMsg && <p className="text-sm text-muted">{genMsg}</p>}
     </div>
