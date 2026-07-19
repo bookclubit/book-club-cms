@@ -10,7 +10,7 @@ import {
   type SpeakerClaim,
 } from '../lib/botApi'
 import { useDataClient, useIndex } from '../lib/hooks'
-import { generateTalkForClaim } from '../lib/talksApi'
+import { cleanupTalkForClaim, generateTalkForClaim } from '../lib/talksApi'
 
 // Модерация заявок спикеров (данные — из D1 бота, TG у админа лишь уведомляшка).
 // Подтвердить → бот пишет спикеру и запускается генерация презентации (PR в
@@ -68,6 +68,17 @@ export function Claims() {
     setBusy(claim.id)
     try {
       await decideClaim(claim.id, action)
+      // Отмена заявки — убираем за ней PR и ветку доклада в book-club-talks.
+      if (action === 'decline' && claim.slides_url) {
+        try {
+          const branch = await cleanupTalkForClaim(claim, getToken() ?? '')
+          if (branch) setGenMsg(`✓ Заявка отклонена, PR и ветка ${branch} в talks удалены.`)
+        } catch (cleanErr) {
+          setGenMsg(
+            `Заявка отклонена, но PR/ветку доклада убрать не вышло: ${cleanErr instanceof Error ? cleanErr.message : String(cleanErr)}`,
+          )
+        }
+      }
       // Подтверждение сразу запускает генерацию презентации (если возможно).
       if (action === 'confirm' && claim.topic_id && claim.speaker_id) {
         try {

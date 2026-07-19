@@ -90,6 +90,36 @@ async function findStream(
   return null
 }
 
+// Имя ветки/папки доклада из URL слайдов: хост в верхнем регистре
+// (https://bc-114-ai-1-nikiforov-1.pages.dev → BC-114-AI-1-NIKIFOROV-1).
+export function branchFromSlides(slidesUrl: string): string | null {
+  try {
+    return new URL(slidesUrl).hostname.split('.')[0].toUpperCase()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Убирает за отменённой заявкой хвост в book-club-talks: закрывает открытый PR
+ * доклада и удаляет его ветку. Best-effort — молча пропускает, если ветки/PR уже
+ * нет. Возвращает имя вычищенной ветки (или null, если чистить нечего).
+ */
+export async function cleanupTalkForClaim(
+  claim: SpeakerClaim,
+  githubToken: string,
+): Promise<string | null> {
+  if (!claim.slides_url) return null
+  const branch = branchFromSlides(claim.slides_url)
+  if (!branch) return null
+
+  const gh = talksClient(githubToken)
+  const prs = await gh.listPullRequestsByHead(branch)
+  for (const pr of prs) await gh.closePullRequest(pr.number)
+  await gh.deleteBranch(branch)
+  return branch
+}
+
 /**
  * Генерация презентации по заявке (единый источник — D1): считает URL, открывает
  * PR в book-club-talks и проставляет slides_url в заявку (бот уведомит спикера).

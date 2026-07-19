@@ -216,6 +216,34 @@ export class GitHubClient {
     )
   }
 
+  // Открытые PR по head-ветке (owner:branch). Пусто, если таких нет.
+  async listPullRequestsByHead(branch: string): Promise<PullRequestInfo[]> {
+    const head = encodeURIComponent(`${this.owner}:${branch}`)
+    return this.request<PullRequestInfo[]>(
+      `${this.repoPath}/pulls?state=open&head=${head}&per_page=10`,
+    )
+  }
+
+  async closePullRequest(number: number): Promise<void> {
+    await this.request(`${this.repoPath}/pulls/${number}`, {
+      method: 'PATCH',
+      body: { state: 'closed' },
+    })
+  }
+
+  // Удаляет ветку. 404/422 (ветки уже нет) — не ошибка.
+  async deleteBranch(branch: string): Promise<void> {
+    try {
+      await this.request(
+        `${this.repoPath}/git/refs/${encodeURIComponent(`heads/${branch}`)}`,
+        { method: 'DELETE' },
+      )
+    } catch (err) {
+      if (err instanceof GitHubError && (err.status === 404 || err.status === 422)) return
+      throw err
+    }
+  }
+
   // Содержимое файла с ветки. null — файла нет (404).
   async getFileText(path: string, ref = 'main'): Promise<string | null> {
     const res = await fetch(
