@@ -4,6 +4,8 @@
 export interface Author {
   name: string
   avatar?: string
+  /** Ссылка на автора (сайт/профиль) — показывается в презентациях talks. */
+  url?: string
 }
 
 export type BookStatus = 'reading' | 'planned' | 'finished'
@@ -35,6 +37,8 @@ export interface BookMeta {
   total_chapters: number
   /** Код книги для генератора презентаций (talks): DOCKER, REACT… */
   code?: string
+  /** Ссылка на книгу (издательство/магазин) — показывается в презентациях talks. */
+  url?: string
 }
 
 export interface TopicRef {

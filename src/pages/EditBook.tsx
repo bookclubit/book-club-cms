@@ -20,6 +20,7 @@ import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } fr
 
 interface AuthorEdit {
   name: string
+  url?: string // ссылка на автора (сайт/профиль)
   avatarPath?: string // существующая аватарка в репозитории
   newAvatar: Uint8Array | null // замена (если выбрана)
 }
@@ -41,6 +42,7 @@ export function EditBook() {
   const [category, setCategory] = useState<'' | BookCategory>('')
   const [tags, setTags] = useState('')
   const [code, setCode] = useState('')
+  const [url, setUrl] = useState('')
   const [description, setDescription] = useState('')
   const [totalChapters, setTotalChapters] = useState('')
   const [newCover, setNewCover] = useState<Uint8Array | null>(null)
@@ -57,10 +59,11 @@ export function EditBook() {
     setCategory(m.category ?? '')
     setTags(m.tags.join(', '))
     setCode(m.code ?? '')
+    setUrl(m.url ?? '')
     setDescription(m.description)
     setTotalChapters(String(m.total_chapters))
     setAuthors(
-      m.authors.map((a) => ({ name: a.name, avatarPath: a.avatar, newAvatar: null })),
+      m.authors.map((a) => ({ name: a.name, url: a.url, avatarPath: a.avatar, newAvatar: null })),
     )
   }, [meta.data])
 
@@ -84,6 +87,7 @@ export function EditBook() {
         ...(Number(edition) > 0 ? { edition: Number(edition) } : {}),
         authors: filledAuthors.map((a) => ({
           name: a.name.trim(),
+          ...(a.url?.trim() ? { url: a.url.trim() } : {}),
           ...(a.newAvatar
             ? { avatar: `/media/authors/${slugify(a.name)}.webp` }
             : a.avatarPath
@@ -100,6 +104,7 @@ export function EditBook() {
         description: description.trim(),
         total_chapters: Number(totalChapters),
         ...(code.trim() ? { code: code.trim().toUpperCase() } : {}),
+        ...(url.trim() ? { url: url.trim() } : {}),
       }
 
       files.push({ path: `books/${folder}/meta.json`, content: toJSON(next) })
@@ -224,6 +229,14 @@ export function EditBook() {
               <TextInput value={code} onChange={(e) => setCode(e.target.value)} placeholder="DOCKER" />
             </Field>
           </div>
+          <Field label="Ссылка на книгу" hint="издательство/магазин — попадёт в презентации">
+            <TextInput
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://..."
+            />
+          </Field>
           <Field label="Описание">
             <TextArea
               value={description}
@@ -272,7 +285,17 @@ export function EditBook() {
                   </Button>
                 )}
               </div>
-              <div className="flex items-start gap-4">
+              <Field label="Ссылка на автора" hint="сайт/профиль — в презентации кликабельна">
+                <TextInput
+                  type="url"
+                  value={author.url ?? ''}
+                  onChange={(e) =>
+                    setAuthors(authors.map((a, j) => (j === i ? { ...a, url: e.target.value } : a)))
+                  }
+                  placeholder="https://..."
+                />
+              </Field>
+              <div className="mt-3 flex items-start gap-4">
                 {author.avatarPath && !author.newAvatar && (
                   <img
                     src={mediaUrl(author.avatarPath)}

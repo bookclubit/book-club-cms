@@ -17,6 +17,7 @@ import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } fr
 
 interface AuthorDraft {
   name: string
+  url?: string // ссылка на автора (сайт/профиль)
   avatar: Uint8Array | null
 }
 
@@ -34,6 +35,7 @@ export function AddBook() {
   const [category, setCategory] = useState<'' | BookCategory>('')
   const [tags, setTags] = useState('')
   const [code, setCode] = useState('')
+  const [url, setUrl] = useState('')
   const [description, setDescription] = useState('')
   const [totalChapters, setTotalChapters] = useState('')
   const [cover, setCover] = useState<Uint8Array | null>(null)
@@ -70,6 +72,7 @@ export function AddBook() {
         ...(Number(edition) > 0 ? { edition: Number(edition) } : {}),
         authors: filledAuthors.map((a) => ({
           name: a.name.trim(),
+          ...(a.url?.trim() ? { url: a.url.trim() } : {}),
           ...(a.avatar
             ? { avatar: `/media/authors/${slugify(a.name)}.webp` }
             : {}),
@@ -84,6 +87,7 @@ export function AddBook() {
         description: description.trim(),
         total_chapters: Number(totalChapters),
         ...(code.trim() ? { code: code.trim().toUpperCase() } : {}),
+        ...(url.trim() ? { url: url.trim() } : {}),
       }
 
       files.push({ path: `books/${cleanFolder}/meta.json`, content: toJSON(meta) })
@@ -220,6 +224,14 @@ export function AddBook() {
               />
             </Field>
           </div>
+          <Field label="Ссылка на книгу" hint="издательство/магазин — попадёт в презентации">
+            <TextInput
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://..."
+            />
+          </Field>
           <Field label="Описание">
             <TextArea
               value={description}
@@ -258,6 +270,18 @@ export function AddBook() {
                     Удалить
                   </Button>
                 )}
+              </div>
+              <div className="mb-3">
+                <Field label="Ссылка на автора" hint="сайт/профиль — в презентации кликабельна">
+                  <TextInput
+                    type="url"
+                    value={author.url ?? ''}
+                    onChange={(e) =>
+                      setAuthors(authors.map((a, j) => (j === i ? { ...a, url: e.target.value } : a)))
+                    }
+                    placeholder="https://..."
+                  />
+                </Field>
               </div>
               <ImagePicker
                 label="Аватар (опционально)"
