@@ -100,6 +100,7 @@ export interface ClosedChapterEvent {
   notes_board_url?: string // доска — ссылка или загруженный файл (raw URL)
   call_url?: string
   streams?: { youtube?: string; vk?: string }
+  stream?: number // номер эфира — показывается как «Книжный клуб <stream>»
   moderators?: EventModerator[]
   materials?: EventMaterial[]
   finished?: boolean

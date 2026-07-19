@@ -109,6 +109,7 @@ export function AddEvent() {
             : {}),
           ...(boardHref ? { notes_board_url: boardHref } : {}),
           ...(Object.keys(streams).length > 0 ? { streams } : {}),
+          ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
           ...(moderators.length > 0 ? { moderators } : {}),
           ...common,
         }
@@ -195,6 +196,22 @@ export function AddEvent() {
               <TextInput type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </Field>
           </div>
+          <Field
+            label="Номер стрима"
+            hint={
+              kind === 'live-talk'
+                ? 'показывается как «Книжный клуб N»; ещё и в имени папки презентации BC-<стрим>-…'
+                : 'показывается как «Книжный клуб N»'
+            }
+          >
+            <TextInput
+              type="number"
+              min={1}
+              value={stream}
+              onChange={(e) => setStream(e.target.value)}
+              placeholder="113"
+            />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Трансляция YouTube">
               <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />
@@ -333,15 +350,6 @@ export function AddEvent() {
                   </Select>
                 </Field>
               </div>
-              <Field label="Номер стрима" hint="в имени папки доклада: BC-<стрим>-… (например 112)">
-                <TextInput
-                  type="number"
-                  min={1}
-                  value={stream}
-                  onChange={(e) => setStream(e.target.value)}
-                  placeholder="112"
-                />
-              </Field>
             </div>
           </Card>
           <Card>
