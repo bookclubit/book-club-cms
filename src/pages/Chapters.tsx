@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ErrorBox, SectionTitle } from '../components/ui'
 import { useDataClient, useIndex } from '../lib/hooks'
 
 // Все главы, сгруппированные по книгам; каждая открывается на редактирование.
+// Фильтр по книге показывает главы только выбранной книги.
 export function Chapters() {
   const gh = useDataClient()
   const { data: index, error, loading } = useIndex(gh)
+  const [book, setBook] = useState<string>('all')
 
   const booksWithChapters = index?.books.filter((b) => b.chapters.length > 0) ?? []
+  const visible = book === 'all' ? booksWithChapters : booksWithChapters.filter((b) => b.folder === book)
 
   return (
     <div className="space-y-6">
@@ -27,7 +31,20 @@ export function Chapters() {
         <p className="text-sm text-muted">Глав пока нет — добавьте первую.</p>
       )}
 
-      {booksWithChapters.map((b) => (
+      {booksWithChapters.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <FilterChip active={book === 'all'} onClick={() => setBook('all')}>
+            Все книги
+          </FilterChip>
+          {booksWithChapters.map((b) => (
+            <FilterChip key={b.folder} active={book === b.folder} onClick={() => setBook(b.folder)}>
+              {b.title}
+            </FilterChip>
+          ))}
+        </div>
+      )}
+
+      {visible.map((b) => (
         <section key={b.folder}>
           <p className="mb-2 text-sm font-medium">{b.title}</p>
           <ul className="space-y-2">
@@ -46,5 +63,30 @@ export function Chapters() {
         </section>
       ))}
     </div>
+  )
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        active
+          ? 'rounded-full bg-ink px-3 py-1 text-sm font-medium text-white'
+          : 'rounded-full border border-line px-3 py-1 text-sm font-medium text-muted hover:text-ink'
+      }
+    >
+      {children}
+    </button>
   )
 }
