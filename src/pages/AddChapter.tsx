@@ -3,6 +3,7 @@ import { PublishPanel } from '../components/PublishPanel'
 import { Card, Field, Select, TextArea, TextInput } from '../components/ui'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
+import { toBulletList } from '../lib/repo'
 import { pad2, slugify } from '../lib/slug'
 import type { Chapter } from '../types'
 
@@ -41,7 +42,7 @@ export function AddChapter() {
         order,
         title: title.trim(),
         description: description.trim(),
-        learning_outcome: outcome.trim(),
+        learning_outcome: toBulletList(outcome),
         topics: [],
       }
 
@@ -117,11 +118,11 @@ export function AddChapter() {
               placeholder="О чём глава"
             />
           </Field>
-          <Field label="Что узнаешь (learning outcome)">
+          <Field label="Чему научишься" hint="по пункту на строку — покажется списком">
             <TextArea
               value={outcome}
               onChange={(e) => setOutcome(e.target.value)}
-              placeholder="Поймёшь…, узнаешь…, научишься…"
+              placeholder={'Поймёшь, как…\nУзнаешь, что…\nНаучишься…'}
             />
           </Field>
         </div>

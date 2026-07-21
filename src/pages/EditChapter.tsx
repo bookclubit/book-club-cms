@@ -4,7 +4,7 @@ import { PublishPanel } from '../components/PublishPanel'
 import { Card, ErrorBox, Field, TextArea, TextInput } from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON } from '../lib/pr'
-import { loadChapter } from '../lib/repo'
+import { loadChapter, toBulletList } from '../lib/repo'
 import type { Chapter } from '../types'
 
 // Редактирование главы: chapter.json. Папка (NN-slug) не переименовывается —
@@ -40,7 +40,7 @@ export function EditChapter() {
         ...current,
         title: title.trim(),
         description: description.trim(),
-        learning_outcome: outcome.trim(),
+        learning_outcome: toBulletList(outcome),
       }
 
       return openContentPR(gh, {
@@ -89,7 +89,7 @@ export function EditChapter() {
           <Field label="Описание">
             <TextArea value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
-          <Field label="Что узнаешь (learning outcome)">
+          <Field label="Чему научишься" hint="по пункту на строку — покажется списком">
             <TextArea value={outcome} onChange={(e) => setOutcome(e.target.value)} />
           </Field>
         </div>

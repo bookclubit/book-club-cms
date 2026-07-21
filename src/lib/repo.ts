@@ -26,6 +26,17 @@ export function mediaUrl(path?: string): string | undefined {
   return path.startsWith('http') ? path : `${RAW_BASE}${path}`
 }
 
+// «Чему научишься» хранится списком: по пункту на строку, каждый с «- »
+// (miniapp показывает его списком). Нормализуем ввод из textarea к этому виду.
+export function toBulletList(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^\s*[-*•]\s*/, '').trim())
+    .filter(Boolean)
+    .map((line) => `- ${line}`)
+    .join('\n')
+}
+
 export async function loadBookMeta(
   gh: GitHubClient,
   folder: string,
