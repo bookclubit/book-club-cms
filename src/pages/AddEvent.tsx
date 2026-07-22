@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { EventTopicsPicker } from '../components/EventTopicsPicker'
 import { ImagePicker } from '../components/ImagePicker'
 import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
 import { Card, Field, Select, TextArea, TextInput } from '../components/ui'
-import { useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { useChapterTopics, useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { BOARD_OPTS } from '../lib/image'
 import { parseMaterials } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
@@ -38,9 +39,18 @@ export function AddEvent() {
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
   const [stream, setStream] = useState('')
+  const [topicIds, setTopicIds] = useState<string[]>([])
 
   const book = index?.books.find((b) => b.folder === folder)
   const slug = slugify(title)
+
+  // Темы выбранной главы — для выбора тем этой встречи (при делении главы).
+  const { topics, loading: topicsLoading } = useChapterTopics(
+    gh,
+    folder,
+    chapterSlug,
+    kind === 'live-talk',
+  )
 
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
   // Эфир можно создать и без докладов: спикеры запишутся через бота,
@@ -115,6 +125,8 @@ export function AddEvent() {
           // Программа докладов: из этой главы бот предлагает темы спикерам.
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
+          // Темы именно этой встречи (если главу делят на несколько эфиров).
+          ...(topicIds.length > 0 ? { topic_ids: topicIds } : {}),
           ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
           ...common,
         }
@@ -305,6 +317,7 @@ export function AddEvent() {
                     onChange={(e) => {
                       setFolder(e.target.value)
                       setChapterSlug('')
+                      setTopicIds([])
                     }}
                   >
                     <option value="">— не привязывать —</option>
@@ -318,7 +331,10 @@ export function AddEvent() {
                 <Field label="Глава">
                   <Select
                     value={chapterSlug}
-                    onChange={(e) => setChapterSlug(e.target.value)}
+                    onChange={(e) => {
+                      setChapterSlug(e.target.value)
+                      setTopicIds([])
+                    }}
                     disabled={!book}
                   >
                     <option value="">— выберите —</option>
@@ -333,12 +349,19 @@ export function AddEvent() {
             </div>
           </Card>
           <Card>
-            <p className="mb-1 text-sm font-medium">Темы главы</p>
-            <p className="text-xs text-muted">
-              Спикеры берут темы через бота (кнопка «Стать спикером»), а назначить или
-              освободить тему можно после создания встречи — на странице её
-              редактирования. Занятость тем — единый источник в боте (D1).
+            <p className="mb-1 text-sm font-medium">Темы этой встречи</p>
+            <p className="mb-4 text-xs text-muted">
+              Отметьте темы, если главу делят на несколько эфиров — встреча покажет
+              только их. Оставьте пустым, если разбираете всю главу. Спикеров на темы
+              назначают через бота или на странице редактирования встречи.
             </p>
+            <EventTopicsPicker
+              chapterSelected={Boolean(book && chapterSlug)}
+              loading={topicsLoading}
+              topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
+              selected={topicIds}
+              onChange={setTopicIds}
+            />
           </Card>
         </>
       )}

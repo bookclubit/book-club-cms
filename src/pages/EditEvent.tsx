@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { EventTopicClaims } from '../components/EventTopicClaims'
+import { EventTopicsPicker } from '../components/EventTopicsPicker'
 import { ImagePicker } from '../components/ImagePicker'
 import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
@@ -21,7 +22,13 @@ import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { loadBookMeta, loadChapter, RAW_BASE } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import { dispatchNewTalk, slidesUrl } from '../lib/talksApi'
-import type { ClosedChapterEvent, ClubEvent, EventModerator, LiveTalkEvent } from '../types'
+import type {
+  ClosedChapterEvent,
+  ClubEvent,
+  EventModerator,
+  EventRecordings,
+  LiveTalkEvent,
+} from '../types'
 
 // Редактирование встречи. Имя файла содержит дату и slug названия, поэтому
 // при их смене файл переносится (старый удаляется, новый создаётся) одним PR
@@ -57,6 +64,9 @@ export function EditEvent() {
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
   const [stream, setStream] = useState('')
+  // Темы именно этой встречи (при делении главы) и монтажные ролики докладов.
+  const [topicIds, setTopicIds] = useState<string[]>([])
+  const [recordings, setRecordings] = useState<EventRecordings>({})
 
   // общее: завершённость встречи (уводит в архив в miniapp)
   const [finished, setFinished] = useState(false)
@@ -96,6 +106,8 @@ export function EditEvent() {
           : '',
       )
       setChapterSlug(ev.chapter ?? '')
+      setTopicIds(ev.topic_ids ?? [])
+      setRecordings(ev.recordings ?? {})
     }
   }, [event.data, index])
 
@@ -125,6 +137,15 @@ export function EditEvent() {
   }, [loadClaims])
 
   const claimByTopic = new Map(claims.filter((c) => c.topic_id).map((c) => [c.topic_id!, c]))
+
+  // Темы этой встречи для монтажных ссылок: выбранные (topic_ids) или вся глава.
+  const meetingTopics = (topics ?? []).filter(
+    (t) => topicIds.length === 0 || topicIds.includes(t.id),
+  )
+
+  function setRecording(topicId: string, field: 'youtube' | 'vk', value: string) {
+    setRecordings((prev) => ({ ...prev, [topicId]: { ...prev[topicId], [field]: value } }))
+  }
 
   const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
   // Эфир может быть и без докладов — спикеры записываются через бота.
@@ -189,6 +210,16 @@ export function EditEvent() {
           ...common,
         }
       } else {
+        // Монтажные ролики: только непустые ссылки и только по темам встречи.
+        const cleanRecordings: EventRecordings = {}
+        for (const [topicId, rec] of Object.entries(recordings)) {
+          if (topicIds.length > 0 && !topicIds.includes(topicId)) continue
+          const yt = rec.youtube?.trim()
+          const v = rec.vk?.trim()
+          if (yt || v) {
+            cleanRecordings[topicId] = { ...(yt ? { youtube: yt } : {}), ...(v ? { vk: v } : {}) }
+          }
+        }
         next = {
           id,
           type: 'live-talk',
@@ -201,6 +232,9 @@ export function EditEvent() {
           talks: [],
           ...(book ? { book_id: book.id } : {}),
           ...(chapterSlug ? { chapter: chapterSlug } : {}),
+          // Темы именно этой встречи (если главу делят на несколько эфиров).
+          ...(topicIds.length > 0 ? { topic_ids: topicIds } : {}),
+          ...(Object.keys(cleanRecordings).length > 0 ? { recordings: cleanRecordings } : {}),
           ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
           ...common,
         }
@@ -485,6 +519,8 @@ export function EditEvent() {
                     onChange={(e) => {
                       setFolder(e.target.value)
                       setChapterSlug('')
+                      setTopicIds([])
+                      setRecordings({})
                     }}
                   >
                     <option value="">— не привязывать —</option>
@@ -498,7 +534,11 @@ export function EditEvent() {
                 <Field label="Глава">
                   <Select
                     value={chapterSlug}
-                    onChange={(e) => setChapterSlug(e.target.value)}
+                    onChange={(e) => {
+                      setChapterSlug(e.target.value)
+                      setTopicIds([])
+                      setRecordings({})
+                    }}
                     disabled={!book}
                   >
                     <option value="">— выберите —</option>
@@ -511,6 +551,20 @@ export function EditEvent() {
                 </Field>
               </div>
             </div>
+          </Card>
+          <Card>
+            <p className="mb-1 text-sm font-medium">Темы этой встречи</p>
+            <p className="mb-4 text-xs text-muted">
+              Отметьте темы, если главу делят на несколько эфиров — встреча (и слоты
+              докладов) покажет только их. Пусто — разбирается вся глава.
+            </p>
+            <EventTopicsPicker
+              chapterSelected={Boolean(book && chapterSlug)}
+              loading={topicsLoading}
+              topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
+              selected={topicIds}
+              onChange={setTopicIds}
+            />
           </Card>
           <Card>
             <p className="mb-1 text-sm font-medium">Темы главы</p>
@@ -537,6 +591,45 @@ export function EditEvent() {
                 onFree={handleFree}
                 onGenerate={generateTalk}
               />
+            )}
+          </Card>
+          <Card>
+            <p className="mb-1 text-sm font-medium">Монтажные ролики докладов</p>
+            <p className="mb-4 text-xs text-muted">
+              Ссылки на чистовые записи докладов — показываются на странице спикера
+              вместо записи всей встречи. Заполняйте после монтажа. Сохраняются с
+              правками встречи (кнопка ниже).
+            </p>
+            {!(book && chapterSlug) ? (
+              <p className="text-sm text-muted">Выберите книгу и главу.</p>
+            ) : topicsLoading ? (
+              <p className="text-sm text-muted">Загружаем темы главы…</p>
+            ) : meetingTopics.length === 0 ? (
+              <p className="text-sm text-muted">В этой главе ещё нет тем.</p>
+            ) : (
+              <div className="space-y-4">
+                {meetingTopics.map((topic) => (
+                  <div key={topic.id} className="space-y-3 rounded-xl border border-line p-4">
+                    <p className="text-sm font-medium">{topic.title}</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Монтаж YouTube">
+                        <TextInput
+                          value={recordings[topic.id]?.youtube ?? ''}
+                          onChange={(e) => setRecording(topic.id, 'youtube', e.target.value)}
+                          placeholder="https://youtu.be/…"
+                        />
+                      </Field>
+                      <Field label="Монтаж VK">
+                        <TextInput
+                          value={recordings[topic.id]?.vk ?? ''}
+                          onChange={(e) => setRecording(topic.id, 'vk', e.target.value)}
+                          placeholder="https://vkvideo.ru/…"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </Card>
         </>

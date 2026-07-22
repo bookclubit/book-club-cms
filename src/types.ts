@@ -119,6 +119,9 @@ export interface LiveTalk {
   slides_url?: string // ссылка на презентацию (talks)
 }
 
+/** Монтажные ролики докладов встречи: id темы → ссылки на чистовую запись. */
+export type EventRecordings = Record<string, { youtube?: string; vk?: string }>
+
 export interface LiveTalkEvent {
   id: string
   type: 'live-talk'
@@ -136,6 +139,14 @@ export interface LiveTalkEvent {
   finished?: boolean
   /** Номер стрима — часть имени папки доклада в talks (BC-<stream>-…). */
   stream?: number
+  /**
+   * Темы главы, разбираемые именно на этой встрече (id тем). Нужно, когда главу
+   * делят на несколько эфиров: каждый показывает только свои темы. Пусто/нет —
+   * вся глава (обратная совместимость: одна встреча на главу).
+   */
+  topic_ids?: string[]
+  /** Монтажные ролики докладов (id темы → ссылки); вносит админ после встречи. */
+  recordings?: EventRecordings
 }
 
 export type ClubEvent = ClosedChapterEvent | LiveTalkEvent
