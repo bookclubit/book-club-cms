@@ -39,7 +39,8 @@ export function Settings() {
         const url = urls[p.id].trim()
         if (url) socials[p.id] = url
       }
-      const next: ClubSettings = { version: 1, socials }
+      // Сохраняем прочие поля настроек (например active_book — активную книгу).
+      const next: ClubSettings = { ...(settings ?? {}), version: 1, socials }
       const files: FileChange[] = [{ path: 'settings.json', content: toJSON(next) }]
 
       return openContentPR(gh, {

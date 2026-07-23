@@ -12,6 +12,7 @@ import {
 import { AVATAR_OPTS, COVER_OPTS } from '../lib/image'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
+import { loadSettings } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } from '../types'
 
@@ -103,17 +104,18 @@ export function AddBook() {
         }
       }
 
-      const nextIndex = structuredClone(index)
-      nextIndex.books.push({
-        folder: cleanFolder,
-        id: cleanId,
-        title: meta.title,
-        status,
-        ...(category ? { category } : {}),
-        chapters: [],
-      })
-      if (status === 'reading') nextIndex.active_book = cleanFolder
-      files.push({ path: 'index.json', content: toJSON(nextIndex) })
+      // Активная книга живёт в settings.json (генератор index.json читает её оттуда).
+      let activeBookChanged = false
+      if (status === 'reading') {
+        const settings = await loadSettings(gh)
+        if (settings.active_book !== cleanFolder) {
+          activeBookChanged = true
+          files.push({
+            path: 'settings.json',
+            content: toJSON({ ...settings, active_book: cleanFolder }),
+          })
+        }
+      }
 
       return openContentPR(gh, {
         branch: `cms/book-${cleanFolder}`,
@@ -126,7 +128,11 @@ export function AddBook() {
           ...filledAuthors
             .filter((a) => a.avatar)
             .map((a) => `- аватар автора \`media/authors/${slugify(a.name)}.webp\``),
-          '- обновлён `index.json`',
+          activeBookChanged
+            ? `- \`settings.json\`: активная книга — \`${cleanFolder}\``
+            : null,
+          '',
+          '`index.json` пересоберётся автоматически после мержа.',
           '',
           '_Создано через CMS Книжного клуба._',
         ]
@@ -158,7 +164,7 @@ export function AddBook() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               label="Папка книги"
-              hint={folderTaken ? '⚠️ такая папка уже есть' : 'books/<папка>/ — kebab-case'}
+              hint={folderTaken ? 'такая папка уже есть' : 'books/<папка>/ — kebab-case'}
             >
               <TextInput value={folder} onChange={(e) => setFolder(e.target.value)} />
             </Field>

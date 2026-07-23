@@ -10,14 +10,16 @@ import {
 import { Card, Field, TextArea, TextInput } from '../components/ui'
 import { fetchClaimPhoto, listSpeakerClaims } from '../lib/botApi'
 import { AVATAR_OPTS, fileToWebP } from '../lib/image'
-import { useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { useDataClient, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
+import { loadSpeakers } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import type { SpeakerSocial } from '../types'
 
 export function AddSpeaker() {
   const gh = useDataClient()
-  const { data: index } = useIndex(gh)
+  // Спикеры живут в speakers.json (генератор index.json читает их оттуда).
+  const speakersFile = useLoad(() => loadSpeakers(gh), [gh])
   const { state, publish, reset } = usePublish()
   const [params] = useSearchParams()
 
@@ -65,18 +67,21 @@ export function AddSpeaker() {
     surname.trim() && firstName.trim()
       ? `${slugify(surname)}-${slugify(firstName)}`
       : ''
-  const taken = Boolean(speakerId && index?.speakers.some((s) => s.id === speakerId))
-  const ready = Boolean(speakerId && avatar && index)
+  const taken = Boolean(
+    speakerId && speakersFile.data?.speakers.some((s) => s.id === speakerId),
+  )
+  const ready = Boolean(speakerId && avatar && speakersFile.data)
 
   function submit() {
-    if (!index || !avatar) return
+    const current = speakersFile.data
+    if (!current || !avatar) return
     publish(async () => {
       const fullName = `${firstName.trim()} ${surname.trim()}`
       const avatarPath = `/media/speakers/${speakerId}.webp`
 
       const socialLinks = collectSocials(socials)
-      const nextIndex = structuredClone(index)
-      nextIndex.speakers.push({
+      const next = structuredClone(current)
+      next.speakers.push({
         id: speakerId,
         name: fullName,
         aliases: [firstName.trim(), fullName],
@@ -87,7 +92,7 @@ export function AddSpeaker() {
 
       const files: FileChange[] = [
         { path: `media/speakers/${speakerId}.webp`, content: avatar },
-        { path: 'index.json', content: toJSON(nextIndex) },
+        { path: 'speakers.json', content: toJSON(next) },
       ]
 
       return openContentPR(gh, {
@@ -97,7 +102,9 @@ export function AddSpeaker() {
           `Новый спикер **${fullName}** (\`${speakerId}\`).`,
           '',
           `- аватарка \`media/speakers/${speakerId}.webp\` (WebP, квадрат)`,
-          '- обновлён `index.json`',
+          '- обновлён `speakers.json`',
+          '',
+          '`index.json` пересоберётся автоматически после мержа.',
           '',
           '_Создано через CMS Книжного клуба._',
         ].join('\n'),
@@ -130,7 +137,7 @@ export function AddSpeaker() {
           {speakerId && (
             <p className="text-xs text-muted">
               id: <code>{speakerId}</code>
-              {taken && ' — ⚠️ такой спикер уже есть'}
+              {taken && ' — такой спикер уже есть'}
             </p>
           )}
           <div className="flex items-start gap-4">

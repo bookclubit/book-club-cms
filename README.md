@@ -19,10 +19,12 @@
   access token; он хранится в `localStorage` и никуда, кроме GitHub, не уходит.
 - **Один PR — один коммит.** Файлы (включая бинарные WebP) собираются через Git
   Data API: blobs → tree → commit → branch → pull request.
-- **Единый реестр `index.json`.** raw.githubusercontent.com не умеет листать
-  директории, поэтому в корне book-club-data лежит реестр книг/глав/событий/
-  спикеров. CMS обновляет его в каждом PR, а miniapp и бот читают вместо
-  захардкоженных списков.
+- **Единый реестр `index.json` — генерируемый.** raw.githubusercontent.com не
+  умеет листать директории, поэтому в корне book-club-data лежит реестр книг/
+  глав/событий/спикеров. GitHub Action в book-club-data пересобирает его после
+  каждого мержа, поэтому PR-ы CMS содержат только собственные файлы (спикеры —
+  `speakers.json`, активная книга — `settings.json`), а miniapp и бот читают
+  реестр вместо захардкоженных списков.
 
 ## Токен для входа
 
@@ -39,10 +41,7 @@ npm run dev      # локально
 npm run build    # tsc + vite build
 ```
 
+Переменные окружения — см. `.env.example` (`VITE_BOT_API` — URL API бота;
+не задано — используется прод).
+
 Деплой: Vercel, `npx vercel deploy --prod` (SPA-rewrite в `vercel.json`).
-
-## Скрипты
-
-- `npm run open-index-pr` — первичная сборка `index.json` обходом репозитория и
-  PR в book-club-data (нужен `GITHUB_TOKEN` в окружении). Формы CMS дальше
-  поддерживают реестр сами.

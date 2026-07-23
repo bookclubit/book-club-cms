@@ -110,6 +110,11 @@ export interface ClosedChapterEvent {
   finished?: boolean
 }
 
+/**
+ * @deprecated Занятость тем живёт в заявках D1 бота (единый источник),
+ * поэтому массив talks в событиях всегда пуст. Тип оставлен только ради
+ * обратной совместимости формата events/*.json.
+ */
 export interface LiveTalk {
   title: string
   speaker: string
@@ -130,6 +135,10 @@ export interface LiveTalkEvent {
   time: string
   timezone: string
   streams: { youtube?: string; vk?: string }
+  /**
+   * @deprecated Всегда пустой массив: занятость тем — в заявках D1 бота.
+   * Поле продолжаем записывать для обратной совместимости потребителей.
+   */
   talks: LiveTalk[]
   call_url?: string
   materials?: EventMaterial[]
@@ -153,8 +162,10 @@ export type ClubEvent = ClosedChapterEvent | LiveTalkEvent
 
 // Единый реестр контента (index.json в корне book-club-data).
 // Решает проблему «raw.githubusercontent.com не листает директории»:
-// потребители (miniapp, bot) читают его вместо захардкоженных списков,
-// а CMS обновляет его в каждом PR.
+// потребители (miniapp, bot) читают его вместо захардкоженных списков.
+// Файл ГЕНЕРИРУЕМЫЙ: GitHub Action в book-club-data пересобирает его после
+// каждого мержа из содержимого репозитория (meta.json, chapter.json,
+// events/*, speakers.json, settings.json). PR-ы CMS его не трогают.
 export interface IndexBook {
   folder: string
   id: string
@@ -190,6 +201,13 @@ export interface ContentIndex {
   speakers: IndexSpeaker[]
 }
 
+// Спикеры клуба (speakers.json в корне book-club-data) — источник правды:
+// генератор index.json переносит их в реестр как есть. CMS правит этот файл.
+export interface SpeakersFile {
+  version: 1
+  speakers: IndexSpeaker[]
+}
+
 // Настройки клуба (settings.json в корне book-club-data): ссылки на соцсети.
 // Общие параметры, не привязанные к контенту; miniapp читает при старте.
 export type SocialPlatform = 'telegram' | 'youtube' | 'vk' | 'boosty' | 'github'
@@ -205,4 +223,9 @@ export const SOCIAL_PLATFORMS: Array<{ id: SocialPlatform; label: string; placeh
 export interface ClubSettings {
   version: 1
   socials: Partial<Record<SocialPlatform, string>>
+  /**
+   * Папка активной книги (books/<folder>) — книга, которую клуб читает сейчас.
+   * Источник правды: генератор index.json переносит значение в active_book реестра.
+   */
+  active_book?: string
 }

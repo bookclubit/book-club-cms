@@ -9,20 +9,21 @@ import {
 } from '../components/SpeakerSocialsFields'
 import { Card, ErrorBox, Field, TextArea, TextInput } from '../components/ui'
 import { AVATAR_OPTS } from '../lib/image'
-import { useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { useDataClient, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
-import { mediaUrl } from '../lib/repo'
-import type { ClubEvent, SpeakerSocial } from '../types'
+import { loadSpeakers, mediaUrl } from '../lib/repo'
+import type { SpeakerSocial } from '../types'
 
-// Редактирование спикера: имя и алиасы в index.json, замена аватарки.
-// id не меняется — на него ссылаются события и доклады.
+// Редактирование спикера: имя и алиасы в speakers.json, замена аватарки.
+// id не меняется — на него ссылаются события и доклады. index.json
+// пересобирается автоматически после мержа.
 export function EditSpeaker() {
   const { id = '' } = useParams()
   const gh = useDataClient()
-  const { data: index, loading, error } = useIndex(gh)
+  const { data: speakersFile, loading, error } = useLoad(() => loadSpeakers(gh), [gh])
   const { state, publish, reset } = usePublish()
 
-  const speaker = index?.speakers.find((s) => s.id === id)
+  const speaker = speakersFile?.speakers.find((s) => s.id === id)
 
   const [name, setName] = useState('')
   const [aliases, setAliases] = useState('')
@@ -41,10 +42,10 @@ export function EditSpeaker() {
   const ready = Boolean(speaker && name.trim())
 
   function submit() {
-    if (!index || !speaker) return
+    if (!speakersFile || !speaker) return
     publish(async () => {
-      const nextIndex = structuredClone(index)
-      const entry = nextIndex.speakers.find((s) => s.id === id)!
+      const next = structuredClone(speakersFile)
+      const entry = next.speakers.find((s) => s.id === id)!
       entry.name = name.trim()
       entry.aliases = aliases
         .split(',')
@@ -57,34 +58,9 @@ export function EditSpeaker() {
       if (Object.keys(socialLinks).length > 0) entry.socials = socialLinks
       else delete entry.socials
 
-      const files: FileChange[] = [{ path: 'index.json', content: toJSON(nextIndex) }]
+      const files: FileChange[] = [{ path: 'speakers.json', content: toJSON(next) }]
       if (newAvatar) {
         files.push({ path: speaker.avatar.replace(/^\//, ''), content: newAvatar })
-      }
-
-      // Имя спикера продублировано в открытых эфирах (talks[].speaker) —
-      // при переименовании обновляем все такие события этим же PR.
-      const renamedEvents: string[] = []
-      if (entry.name !== speaker.name) {
-        const liveTalkPaths = index.events.filter((p) => p.startsWith('live-talks/'))
-        const events = await Promise.all(
-          liveTalkPaths.map(async (p) => ({
-            path: `events/${p}`,
-            event: await gh.getFileJson<ClubEvent>(`events/${p}`),
-          })),
-        )
-        for (const { path, event } of events) {
-          if (!event || event.type !== 'live-talk') continue
-          if (!event.talks.some((t) => t.speaker_id === id)) continue
-          const next = {
-            ...event,
-            talks: event.talks.map((t) =>
-              t.speaker_id === id ? { ...t, speaker: entry.name } : t,
-            ),
-          }
-          files.push({ path, content: toJSON(next) })
-          renamedEvents.push(path)
-        }
       }
 
       return openContentPR(gh, {
@@ -93,9 +69,10 @@ export function EditSpeaker() {
         body: [
           `Правки спикера **${entry.name}** (\`${id}\`).`,
           '',
-          '- обновлён `index.json`',
+          '- обновлён `speakers.json`',
           newAvatar ? `- заменена аватарка \`${speaker.avatar.replace(/^\//, '')}\`` : null,
-          ...renamedEvents.map((p) => `- имя обновлено в \`${p}\``),
+          '',
+          '`index.json` пересоберётся автоматически после мержа.',
           '',
           '_Обновлено через CMS Книжного клуба._',
         ]
@@ -106,7 +83,7 @@ export function EditSpeaker() {
     })
   }
 
-  if (loading) return <p className="text-sm text-muted">Загружаем реестр…</p>
+  if (loading) return <p className="text-sm text-muted">Загружаем спикеров…</p>
   if (error) return <ErrorBox>{error}</ErrorBox>
   if (!speaker) {
     return (
@@ -120,8 +97,7 @@ export function EditSpeaker() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
-        Редактирование спикера <code>{id}</code> (id не меняется). При переименовании
-        имя обновится и во всех открытых эфирах с его докладами.
+        Редактирование спикера <code>{id}</code> (id не меняется).
       </p>
 
       <Card>

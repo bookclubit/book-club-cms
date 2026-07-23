@@ -94,7 +94,7 @@ export function Claims() {
     try {
       if (!index) throw new Error('Реестр ещё грузится — повторите')
       const url = await generateTalkForClaim(gh, index, claim, getToken() ?? '')
-      setGenMsg(`✓ Презентация запущена: ${url}. PR появится в book-club-talks, спикеру ушла инструкция.`)
+      setGenMsg(`Презентация запущена: ${url}. PR появится в book-club-talks, спикеру ушла инструкция.`)
       reload()
     } catch (err) {
       setGenMsg(err instanceof Error ? err.message : String(err))
@@ -111,7 +111,7 @@ export function Claims() {
       if (action === 'decline' && claim.slides_url) {
         try {
           const branch = await cleanupTalkForClaim(claim, getToken() ?? '')
-          if (branch) setGenMsg(`✓ Заявка отклонена, PR и ветка ${branch} в talks удалены.`)
+          if (branch) setGenMsg(`Заявка отклонена, PR и ветка ${branch} в talks удалены.`)
         } catch (cleanErr) {
           setGenMsg(
             `Заявка отклонена, но PR/ветку доклада убрать не вышло: ${cleanErr instanceof Error ? cleanErr.message : String(cleanErr)}`,
@@ -123,7 +123,7 @@ export function Claims() {
         try {
           if (!index) throw new Error('Реестр ещё грузится')
           const url = await generateTalkForClaim(gh, index, claim, getToken() ?? '')
-          setGenMsg(`✓ Подтверждено, презентация запущена: ${url}`)
+          setGenMsg(`Подтверждено, презентация запущена: ${url}`)
         } catch (genErr) {
           setGenMsg(
             `Подтверждено, но презентацию не сгенерировать: ${genErr instanceof Error ? genErr.message : String(genErr)}`,
@@ -229,7 +229,7 @@ export function Claims() {
               )}
               {claim.speaker_id ? (
                 <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                  ✓ узнан по Telegram
+                  узнан по Telegram
                 </span>
               ) : (
                 <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
@@ -251,7 +251,7 @@ export function Claims() {
 
         {claim.slides_url && (
           <p className="mt-3 text-sm">
-            🎤 Презентация:{' '}
+            Презентация:{' '}
             <a
               href={claim.slides_url}
               target="_blank"
@@ -266,12 +266,12 @@ export function Claims() {
         <div className="mt-4 flex flex-wrap gap-2">
           {claim.status === 'pending' && (
             <Button disabled={busy === claim.id} onClick={() => void decide(claim, 'confirm')}>
-              ✅ Подтвердить{claim.speaker_id ? ' и сгенерировать' : ''}
+              Подтвердить{claim.speaker_id ? ' и сгенерировать' : ''}
             </Button>
           )}
           {claim.status === 'confirmed' && claim.speaker_id && !claim.slides_url && (
             <Button disabled={busy === claim.id} onClick={() => void generate(claim)}>
-              🎤 Сгенерировать презентацию
+              Сгенерировать презентацию
             </Button>
           )}
           {claim.status === 'confirmed' && !claim.speaker_id && (
@@ -287,7 +287,7 @@ export function Claims() {
             disabled={busy === claim.id}
             onClick={() => void decide(claim, 'decline')}
           >
-            ❌ Отклонить{claim.topic_id ? ' (освободит тему)' : ''}
+            Отклонить{claim.topic_id ? ' (освободит тему)' : ''}
           </Button>
         </div>
       </div>

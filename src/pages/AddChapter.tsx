@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { PublishPanel } from '../components/PublishPanel'
 import { Card, Field, Select, TextArea, TextInput } from '../components/ui'
-import { useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { toBulletList } from '../lib/repo'
 import { pad2, slugify } from '../lib/slug'
@@ -19,24 +19,38 @@ export function AddChapter() {
 
   const book = index?.books.find((b) => b.folder === folder)
 
+  // Существующие папки глав — из реального дерева репозитория: в генерируемый
+  // index.json попадают только главы с темами, поэтому для нумерации и проверки
+  // занятости slug-а его недостаточно.
+  const chapterDirs = useLoad(
+    async () =>
+      folder ? ((await gh.listDir(`books/${folder}/chapters`)) ?? []) : [],
+    [gh, folder],
+  )
+  const existingChapters = useMemo(
+    () => (chapterDirs.data ?? []).filter((e) => e.type === 'dir').map((e) => e.name),
+    [chapterDirs.data],
+  )
+
   // Номер главы = следующий за последним существующим (префикс NN- в slug-ах).
   const nextOrder = useMemo(() => {
-    if (!book) return 1
-    const numbers = book.chapters
+    const numbers = existingChapters
       .map((slug) => Number(slug.split('-')[0]))
       .filter((n) => Number.isFinite(n))
     return numbers.length > 0 ? Math.max(...numbers) + 1 : 1
-  }, [book])
+  }, [existingChapters])
 
   const [orderOverride, setOrderOverride] = useState('')
   const order = Number(orderOverride) > 0 ? Number(orderOverride) : nextOrder
   const chapterSlug = `${pad2(order)}-${slugify(title)}`
 
-  const ready = Boolean(book && title.trim() && description.trim() && outcome.trim())
-  const slugTaken = book?.chapters.includes(chapterSlug)
+  const ready = Boolean(
+    book && title.trim() && description.trim() && outcome.trim() && !chapterDirs.loading,
+  )
+  const slugTaken = existingChapters.includes(chapterSlug)
 
   function submit() {
-    if (!index || !book) return
+    if (!book) return
     publish(async () => {
       const chapter: Chapter = {
         order,
@@ -46,16 +60,11 @@ export function AddChapter() {
         topics: [],
       }
 
-      const nextIndex = structuredClone(index)
-      const target = nextIndex.books.find((b) => b.folder === book.folder)!
-      target.chapters = [...target.chapters, chapterSlug].sort()
-
       const files: FileChange[] = [
         {
           path: `books/${book.folder}/chapters/${chapterSlug}/chapter.json`,
           content: toJSON(chapter),
         },
-        { path: 'index.json', content: toJSON(nextIndex) },
       ]
 
       return openContentPR(gh, {
@@ -65,7 +74,8 @@ export function AddChapter() {
           `Глава **${order}. ${chapter.title}** книги **${book.title}**.`,
           '',
           `- \`books/${book.folder}/chapters/${chapterSlug}/chapter.json\``,
-          '- обновлён `index.json`',
+          '',
+          '`index.json` пересоберётся автоматически после мержа (глава появится в нём после добавления первой темы).',
           '',
           'Темы добавляются отдельными PR через форму «Тема».',
           '',
@@ -102,7 +112,7 @@ export function AddChapter() {
             </Field>
             <Field
               label="Название главы"
-              hint={title ? `папка: ${chapterSlug}${slugTaken ? ' — ⚠️ уже есть' : ''}` : undefined}
+              hint={title ? `папка: ${chapterSlug}${slugTaken ? ' — уже есть' : ''}` : undefined}
             >
               <TextInput
                 value={title}

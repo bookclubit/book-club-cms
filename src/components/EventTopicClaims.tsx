@@ -80,7 +80,7 @@ export function EventTopicClaims({
                 <p className="text-sm">
                   {claim.full_name ?? (claim.username ? `@${claim.username}` : 'участник клуба')}
                   {claim.speaker_id && (
-                    <span className="ml-2 text-xs text-muted">· из каталога ✓</span>
+                    <span className="ml-2 text-xs text-muted">· из каталога</span>
                   )}
                 </p>
                 {claim.slides_url && (
@@ -103,7 +103,7 @@ export function EventTopicClaims({
                       disabled={genBusyId !== null}
                       onClick={() => onGenerate(topic.id)}
                     >
-                      {genBusyId === topic.id ? 'Создаём…' : '🎤 Создать презентацию (PR)'}
+                      {genBusyId === topic.id ? 'Создаём…' : 'Создать презентацию (PR)'}
                     </Button>
                   )}
                 </div>

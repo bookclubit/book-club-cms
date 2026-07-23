@@ -43,7 +43,7 @@ export const EMPTY_SOCIALS: Record<SpeakerSocial, string> = {
   website: '',
 }
 
-// Собирает объект соцсетей для index.json (только непустые).
+// Собирает объект соцсетей для speakers.json (только непустые).
 export function collectSocials(
   value: Record<SpeakerSocial, string>,
 ): Partial<Record<SpeakerSocial, string>> {

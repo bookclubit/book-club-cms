@@ -68,7 +68,7 @@ export function Dashboard() {
         <SectionTitle>Открытые pull request-ы</SectionTitle>
         {prs === null && <p className="text-sm text-muted">Не удалось загрузить список.</p>}
         {prs?.length === 0 && (
-          <p className="text-sm text-muted">Нет открытых PR — всё смержено ✨</p>
+          <p className="text-sm text-muted">Нет открытых PR — всё смержено</p>
         )}
         {prs && prs.length > 0 && (
           <ul className="space-y-2">

@@ -14,7 +14,7 @@ import {
 import { AVATAR_OPTS, COVER_OPTS } from '../lib/image'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
-import { loadBookMeta, mediaUrl } from '../lib/repo'
+import { loadBookMeta, loadSettings, mediaUrl } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } from '../types'
 
@@ -25,8 +25,9 @@ interface AuthorEdit {
   newAvatar: Uint8Array | null // замена (если выбрана)
 }
 
-// Редактирование книги: meta.json + при необходимости обложка/аватарки/index.json.
-// Папка и id не меняются — на них завязаны пути файлов и ссылки потребителей.
+// Редактирование книги: meta.json + при необходимости обложка/аватарки/settings.json
+// (активная книга). Папка и id не меняются — на них завязаны пути файлов и
+// ссылки потребителей; index.json пересобирается автоматически после мержа.
 export function EditBook() {
   const { folder = '' } = useParams()
   const gh = useDataClient()
@@ -120,16 +121,18 @@ export function EditBook() {
         }
       }
 
-      const nextIndex = structuredClone(index)
-      const entry = nextIndex.books.find((b) => b.folder === folder)
-      if (entry) {
-        entry.title = next.title
-        entry.status = status
-        if (category) entry.category = category
-        else delete entry.category
+      // Активная книга живёт в settings.json (генератор index.json читает её оттуда).
+      let activeBookChanged = false
+      if (status === 'reading') {
+        const settings = await loadSettings(gh)
+        if (settings.active_book !== folder) {
+          activeBookChanged = true
+          files.push({
+            path: 'settings.json',
+            content: toJSON({ ...settings, active_book: folder }),
+          })
+        }
       }
-      if (status === 'reading') nextIndex.active_book = folder
-      files.push({ path: 'index.json', content: toJSON(nextIndex) })
 
       return openContentPR(gh, {
         branch: `cms/edit-book-${folder}`,
@@ -142,7 +145,9 @@ export function EditBook() {
           ...filledAuthors
             .filter((a) => a.newAvatar)
             .map((a) => `- заменён аватар \`media/authors/${slugify(a.name)}.webp\``),
-          '- обновлён `index.json`',
+          activeBookChanged ? `- \`settings.json\`: активная книга — \`${folder}\`` : null,
+          '',
+          '`index.json` пересоберётся автоматически после мержа.',
           '',
           '_Обновлено через CMS Книжного клуба._',
         ]

@@ -2,7 +2,10 @@
 // Админ-токен (= секрет ADMIN_API_TOKEN воркера) хранится в localStorage,
 // как и GitHub-токен.
 
-const BOT_API = 'https://book-club-bot.vitrumbeta.workers.dev'
+// URL воркера настраивается через VITE_BOT_API (см. .env.example);
+// по умолчанию — прод.
+const BOT_API =
+  import.meta.env.VITE_BOT_API ?? 'https://book-club-bot.vitrumbeta.workers.dev'
 const TOKEN_KEY = 'book-club-bot-admin-token'
 
 export function getBotToken(): string | null {

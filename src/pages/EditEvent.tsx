@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import {
+  buildEventFiles,
+  EventFormFields,
+  isEventFormReady,
+  useEventFormState,
+} from '../components/EventForm'
 import { EventTopicClaims } from '../components/EventTopicClaims'
-import { EventTopicsPicker } from '../components/EventTopicsPicker'
-import { ImagePicker } from '../components/ImagePicker'
-import { ModeratorPicker } from '../components/ModeratorPicker'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, ErrorBox, Field, Select, TextArea, TextInput } from '../components/ui'
+import { Card, ErrorBox, Field, TextInput } from '../components/ui'
 import { getToken } from '../lib/auth'
 import {
   assignClaim,
@@ -16,23 +19,16 @@ import {
   type SpeakerClaim,
 } from '../lib/botApi'
 import { useChapterTopics, useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
-import { BOARD_OPTS } from '../lib/image'
-import { materialsToText, parseMaterials } from '../lib/materials'
+import { materialsToText } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
-import { loadBookMeta, loadChapter, RAW_BASE } from '../lib/repo'
+import { loadBookMeta, loadChapter } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import { dispatchNewTalk, slidesUrl } from '../lib/talksApi'
-import type {
-  ClosedChapterEvent,
-  ClubEvent,
-  EventModerator,
-  EventRecordings,
-  LiveTalkEvent,
-} from '../types'
+import type { ClubEvent } from '../types'
 
 // Редактирование встречи. Имя файла содержит дату и slug названия, поэтому
-// при их смене файл переносится (старый удаляется, новый создаётся) одним PR
-// вместе с обновлением index.json.
+// при их смене файл переносится (старый удаляется, новый создаётся) одним PR;
+// index.json пересоберётся автоматически после мержа.
 export function EditEvent() {
   const { dir = '', file = '' } = useParams()
   const gh = useDataClient()
@@ -45,31 +41,7 @@ export function EditEvent() {
     [gh, dir, file],
   )
 
-  const [title, setTitle] = useState('')
-  const [date, setDate] = useState('')
-  const [time, setTime] = useState('19:00')
-  const [callUrl, setCallUrl] = useState('')
-  const [materialsText, setMaterialsText] = useState('')
-
-  // closed-chapter
-  const [folder, setFolder] = useState('')
-  const [chapterSlug, setChapterSlug] = useState('')
-  const [pagesFrom, setPagesFrom] = useState('')
-  const [pagesTo, setPagesTo] = useState('')
-  const [boardUrl, setBoardUrl] = useState('')
-  const [boardFile, setBoardFile] = useState<Uint8Array | null>(null)
-  const [moderatorIds, setModeratorIds] = useState<string[]>([])
-
-  // live-talk
-  const [youtube, setYoutube] = useState('')
-  const [vk, setVk] = useState('')
-  const [stream, setStream] = useState('')
-  // Темы именно этой встречи (при делении главы) и монтажные ролики докладов.
-  const [topicIds, setTopicIds] = useState<string[]>([])
-  const [recordings, setRecordings] = useState<EventRecordings>({})
-
-  // общее: завершённость встречи (уводит в архив в miniapp)
-  const [finished, setFinished] = useState(false)
+  const form = useEventFormState()
 
   // Занятость тем — единый источник в D1 (заявки бота). Грузим и меняем их же.
   const [claims, setClaims] = useState<SpeakerClaim[]>([])
@@ -83,54 +55,55 @@ export function EditEvent() {
   useEffect(() => {
     const ev = event.data
     if (!ev || !index) return
-    setTitle(ev.title)
-    setDate(ev.date)
-    setTime(ev.time)
-    setCallUrl(ev.call_url ?? '')
-    setMaterialsText(materialsToText(ev.materials))
-    setYoutube(ev.streams?.youtube ?? '')
-    setVk(ev.streams?.vk ?? '')
-    setStream(ev.stream ? String(ev.stream) : '')
-    setFinished(ev.finished ?? false)
+    form.setTitle(ev.title)
+    form.setDate(ev.date)
+    form.setTime(ev.time)
+    form.setCallUrl(ev.call_url ?? '')
+    form.setMaterialsText(materialsToText(ev.materials))
+    form.setYoutube(ev.streams?.youtube ?? '')
+    form.setVk(ev.streams?.vk ?? '')
+    form.setStream(ev.stream ? String(ev.stream) : '')
+    form.setFinished(ev.finished ?? false)
     if (ev.type === 'closed-chapter') {
-      setFolder(index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
-      setChapterSlug(ev.chapter)
-      setPagesFrom(ev.pages ? String(ev.pages.from) : '')
-      setPagesTo(ev.pages ? String(ev.pages.to) : '')
-      setBoardUrl(ev.notes_board_url ?? '')
-      setModeratorIds((ev.moderators ?? []).map((m) => m.speaker_id))
+      form.setFolder(index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
+      form.setChapterSlug(ev.chapter)
+      form.setPagesFrom(ev.pages ? String(ev.pages.from) : '')
+      form.setPagesTo(ev.pages ? String(ev.pages.to) : '')
+      form.setBoardUrl(ev.notes_board_url ?? '')
+      form.setModeratorIds((ev.moderators ?? []).map((m) => m.speaker_id))
     } else {
-      setFolder(
+      form.setFolder(
         ev.book_id
           ? (index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
           : '',
       )
-      setChapterSlug(ev.chapter ?? '')
-      setTopicIds(ev.topic_ids ?? [])
-      setRecordings(ev.recordings ?? {})
+      form.setChapterSlug(ev.chapter ?? '')
+      form.setTopicIds(ev.topic_ids ?? [])
+      form.setRecordings(ev.recordings ?? {})
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.data, index])
 
-  const book = index?.books.find((b) => b.folder === folder)
+  const book = index?.books.find((b) => b.folder === form.folder)
 
   // Темы выбранной главы — слоты докладов.
   const { topics, loading: topicsLoading } = useChapterTopics(
     gh,
-    folder,
-    chapterSlug,
+    form.folder,
+    form.chapterSlug,
     kind === 'live-talk',
   )
 
   // Заявки этой встречи из D1 (единый источник занятости) — по книге и главе.
   const loadClaims = useCallback(async () => {
-    if (kind !== 'live-talk' || !book || !chapterSlug || !getBotToken()) return
+    if (kind !== 'live-talk' || !book || !form.chapterSlug || !getBotToken()) return
     try {
       const all = await listSpeakerClaims()
-      setClaims(all.filter((c) => c.book_id === book.id && c.chapter === chapterSlug))
+      setClaims(all.filter((c) => c.book_id === book.id && c.chapter === form.chapterSlug))
     } catch (e) {
       setClaimsMsg(e instanceof Error ? e.message : String(e))
     }
-  }, [kind, book, chapterSlug])
+  }, [kind, book, form.chapterSlug])
 
   useEffect(() => {
     void loadClaims()
@@ -140,105 +113,27 @@ export function EditEvent() {
 
   // Темы этой встречи для монтажных ссылок: выбранные (topic_ids) или вся глава.
   const meetingTopics = (topics ?? []).filter(
-    (t) => topicIds.length === 0 || topicIds.includes(t.id),
+    (t) => form.topicIds.length === 0 || form.topicIds.includes(t.id),
   )
 
   function setRecording(topicId: string, field: 'youtube' | 'vk', value: string) {
-    setRecordings((prev) => ({ ...prev, [topicId]: { ...prev[topicId], [field]: value } }))
+    form.setRecordings((prev) => ({
+      ...prev,
+      [topicId]: { ...prev[topicId], [field]: value },
+    }))
   }
 
-  const readyCommon = Boolean(title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(date) && time)
-  // Эфир может быть и без докладов — спикеры записываются через бота.
-  const ready =
-    Boolean(event.data && index) &&
-    readyCommon &&
-    (kind === 'closed-chapter' ? Boolean(book && chapterSlug) : true)
+  const ready = Boolean(event.data && index) && isEventFormReady(kind, form, book)
 
   function submit() {
     if (!index || !event.data) return
     publish(async () => {
-      const prefix = kind === 'closed-chapter' ? 'closed' : 'live'
-      const slug = slugify(title)
-      const newFile = `${date}-${slug}.json`
+      const slug = slugify(form.title)
+      const newFile = `${form.date}-${slug}.json`
       const oldPath = `events/${dir}/${file}`
       const newPath = `events/${dir}/${newFile}`
-      const id = `${prefix}-${date}-${slug}`
 
-      const materials = parseMaterials(materialsText)
-      const streams = {
-        ...(youtube.trim() ? { youtube: youtube.trim() } : {}),
-        ...(vk.trim() ? { vk: vk.trim() } : {}),
-      }
-      const common = {
-        // Meet — только у открытых обсуждений; доклады — чистовая запись.
-        ...(kind === 'closed-chapter' && callUrl.trim() ? { call_url: callUrl.trim() } : {}),
-        ...(materials.length > 0 ? { materials } : {}),
-        ...(finished ? { finished: true } : {}),
-      }
-
-      const extraFiles: FileChange[] = []
-
-      let next: ClosedChapterEvent | LiveTalkEvent
-      if (kind === 'closed-chapter') {
-        // Доска — ссылка или загруженный файл (media/boards).
-        let boardHref = boardUrl.trim()
-        if (boardFile) {
-          const boardPath = `media/boards/${date}-${slug}.webp`
-          extraFiles.push({ path: boardPath, content: boardFile })
-          boardHref = `${RAW_BASE}/${boardPath}`
-        }
-        const moderators: EventModerator[] = moderatorIds
-          .map((mid) => index.speakers.find((s) => s.id === mid))
-          .filter((s): s is NonNullable<typeof s> => Boolean(s))
-          .map((s) => ({ speaker_id: s.id, name: s.name, avatar: s.avatar }))
-        next = {
-          id,
-          type: 'closed-chapter',
-          title: title.trim(),
-          date,
-          time,
-          timezone: 'Europe/Moscow',
-          book_id: book!.id,
-          chapter: chapterSlug,
-          ...(Number(pagesFrom) > 0 && Number(pagesTo) > 0
-            ? { pages: { from: Number(pagesFrom), to: Number(pagesTo) } }
-            : {}),
-          ...(boardHref ? { notes_board_url: boardHref } : {}),
-          ...(Object.keys(streams).length > 0 ? { streams } : {}),
-          ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
-          ...(moderators.length > 0 ? { moderators } : {}),
-          ...common,
-        }
-      } else {
-        // Монтажные ролики: только непустые ссылки и только по темам встречи.
-        const cleanRecordings: EventRecordings = {}
-        for (const [topicId, rec] of Object.entries(recordings)) {
-          if (topicIds.length > 0 && !topicIds.includes(topicId)) continue
-          const yt = rec.youtube?.trim()
-          const v = rec.vk?.trim()
-          if (yt || v) {
-            cleanRecordings[topicId] = { ...(yt ? { youtube: yt } : {}), ...(v ? { vk: v } : {}) }
-          }
-        }
-        next = {
-          id,
-          type: 'live-talk',
-          title: title.trim(),
-          date,
-          time,
-          timezone: 'Europe/Moscow',
-          streams,
-          // Занятость тем — в заявках D1 (единый источник), не в event.talks.
-          talks: [],
-          ...(book ? { book_id: book.id } : {}),
-          ...(chapterSlug ? { chapter: chapterSlug } : {}),
-          // Темы именно этой встречи (если главу делят на несколько эфиров).
-          ...(topicIds.length > 0 ? { topic_ids: topicIds } : {}),
-          ...(Object.keys(cleanRecordings).length > 0 ? { recordings: cleanRecordings } : {}),
-          ...(Number(stream) > 0 ? { stream: Number(stream) } : {}),
-          ...common,
-        }
-      }
+      const { event: next, extraFiles } = buildEventFiles({ kind, form, index, slug })
 
       const files: FileChange[] = [
         { path: newPath, content: toJSON(next) },
@@ -247,23 +142,16 @@ export function EditEvent() {
       const renamed = newPath !== oldPath
       if (renamed) files.push({ path: oldPath, content: null })
 
-      if (renamed) {
-        const nextIndex = structuredClone(index)
-        nextIndex.events = nextIndex.events
-          .filter((e) => e !== `${dir}/${file}`)
-          .concat(`${dir}/${newFile}`)
-          .sort()
-        files.push({ path: 'index.json', content: toJSON(nextIndex) })
-      }
-
       return openContentPR(gh, {
-        branch: `cms/edit-event-${date}-${slug}`,
-        title: `fix(events): обновить встречу «${title.trim()}» (${date})`,
+        branch: `cms/edit-event-${form.date}-${slug}`,
+        title: `fix(events): обновить встречу «${form.title.trim()}» (${form.date})`,
         body: [
-          `Правки встречи **${title.trim()}**.`,
+          `Правки встречи **${form.title.trim()}**.`,
           '',
           `- \`${newPath}\``,
-          renamed ? `- файл перенесён (был \`${oldPath}\`), обновлён \`index.json\`` : null,
+          renamed ? `- файл перенесён (был \`${oldPath}\`)` : null,
+          '',
+          '`index.json` пересоберётся автоматически после мержа.',
           '',
           '_Обновлено через CMS Книжного клуба._',
         ]
@@ -276,7 +164,7 @@ export function EditEvent() {
 
   // Назначить спикера каталога на тему — создаёт заявку в D1 (единый источник).
   async function handleAssign(topicId: string, topicTitle: string, speakerId: string) {
-    if (!book || !chapterSlug) return
+    if (!book || !form.chapterSlug) return
     const speaker = index?.speakers.find((s) => s.id === speakerId)
     if (!speaker) return
     setClaimsMsg(null)
@@ -286,7 +174,7 @@ export function EditEvent() {
         topicId,
         topicTitle,
         bookId: book.id,
-        chapter: chapterSlug,
+        chapter: form.chapterSlug,
         speakerId: speaker.id,
         speakerName: speaker.name,
       })
@@ -318,34 +206,34 @@ export function EditEvent() {
     const claim = claimByTopic.get(topicId)
     setGenMsg(null)
     if (!book) return setGenMsg('Сначала выберите книгу')
-    if (!chapterSlug) return setGenMsg('Выберите главу')
+    if (!form.chapterSlug) return setGenMsg('Выберите главу')
     if (!topic) return setGenMsg('Презентацию можно сгенерировать только для темы из плана главы')
     if (!claim?.speaker_id) return setGenMsg('У темы нет каталожного спикера')
-    if (!(Number(stream) > 0)) return setGenMsg('Укажите номер стрима')
+    if (!(Number(form.stream) > 0)) return setGenMsg('Укажите номер стрима')
 
     setGenId(topicId)
     try {
       const meta = await loadBookMeta(gh, book.folder)
       if (!meta?.code) throw new Error('У книги нет кода (задайте в форме книги: DOCKER, REACT…)')
-      const chapter = await loadChapter(gh, book.folder, chapterSlug)
+      const chapter = await loadChapter(gh, book.folder, form.chapterSlug)
       if (!chapter) throw new Error('Глава не найдена в book-club-data')
 
       const url = slidesUrl({
-        stream: Number(stream),
+        stream: Number(form.stream),
         code: meta.code,
         chapterOrder: chapter.order,
         speakerId: claim.speaker_id,
       })
       await dispatchNewTalk(getToken() ?? '', {
         book: book.folder,
-        chapter: chapterSlug,
+        chapter: form.chapterSlug,
         topic: topic.title,
         speaker: claim.speaker_id,
-        stream: Number(stream),
+        stream: Number(form.stream),
       })
       await setClaimSlides(topicId, url)
       await loadClaims()
-      setGenMsg(`✓ Запущена генерация. PR появится в book-club-talks, слайды: ${url}`)
+      setGenMsg(`Запущена генерация. PR появится в book-club-talks, слайды: ${url}`)
     } catch (e) {
       setGenMsg(e instanceof Error ? e.message : String(e))
     } finally {
@@ -364,6 +252,78 @@ export function EditEvent() {
     )
   }
 
+  // Edit-only блоки эфира: заявки D1 и монтажные ролики (после «Тем встречи»).
+  const liveTalkExtra = (
+    <>
+      <Card>
+        <p className="mb-1 text-sm font-medium">Темы главы</p>
+        <p className="mb-4 text-xs text-muted">
+          Занятость тем — единый источник в боте (D1): «Освободить» удаляет заявку,
+          назначение создаёт её. Изменения применяются сразу, без сохранения встречи.
+          «Создать презентацию» доступна для каталожного спикера.
+        </p>
+        {!getBotToken() ? (
+          <p className="text-sm text-muted">
+            Для управления темами нужен админ-токен бота (задайте на странице входа).
+          </p>
+        ) : (
+          <EventTopicClaims
+            chapterSelected={Boolean(book && form.chapterSlug)}
+            loading={topicsLoading}
+            topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
+            claimByTopic={claimByTopic}
+            speakers={index?.speakers ?? []}
+            busyTopic={busyTopic}
+            genBusyId={genId}
+            message={claimsMsg ?? genMsg}
+            onAssign={handleAssign}
+            onFree={handleFree}
+            onGenerate={generateTalk}
+          />
+        )}
+      </Card>
+      <Card>
+        <p className="mb-1 text-sm font-medium">Монтажные ролики докладов</p>
+        <p className="mb-4 text-xs text-muted">
+          Ссылки на чистовые записи докладов — показываются на странице спикера
+          вместо записи всей встречи. Заполняйте после монтажа. Сохраняются с
+          правками встречи (кнопка ниже).
+        </p>
+        {!(book && form.chapterSlug) ? (
+          <p className="text-sm text-muted">Выберите книгу и главу.</p>
+        ) : topicsLoading ? (
+          <p className="text-sm text-muted">Загружаем темы главы…</p>
+        ) : meetingTopics.length === 0 ? (
+          <p className="text-sm text-muted">В этой главе ещё нет тем.</p>
+        ) : (
+          <div className="space-y-4">
+            {meetingTopics.map((topic) => (
+              <div key={topic.id} className="space-y-3 rounded-xl border border-line p-4">
+                <p className="text-sm font-medium">{topic.title}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Монтаж YouTube">
+                    <TextInput
+                      value={form.recordings[topic.id]?.youtube ?? ''}
+                      onChange={(e) => setRecording(topic.id, 'youtube', e.target.value)}
+                      placeholder="https://youtu.be/…"
+                    />
+                  </Field>
+                  <Field label="Монтаж VK">
+                    <TextInput
+                      value={form.recordings[topic.id]?.vk ?? ''}
+                      onChange={(e) => setRecording(topic.id, 'vk', e.target.value)}
+                      placeholder="https://vkvideo.ru/…"
+                    />
+                  </Field>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  )
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
@@ -376,8 +336,8 @@ export function EditEvent() {
         <label className="flex items-start gap-3">
           <input
             type="checkbox"
-            checked={finished}
-            onChange={(e) => setFinished(e.target.checked)}
+            checked={form.finished}
+            onChange={(e) => form.setFinished(e.target.checked)}
             className="mt-0.5 h-4 w-4 shrink-0"
           />
           <span>
@@ -390,250 +350,14 @@ export function EditEvent() {
         </label>
       </Card>
 
-      <Card>
-        <div className="space-y-4">
-          <Field label="Название">
-            <TextInput value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Дата">
-              <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </Field>
-            <Field label="Время (МСК)">
-              <TextInput type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-            </Field>
-          </div>
-          <Field
-            label="Номер стрима"
-            hint={
-              kind === 'live-talk'
-                ? 'показывается как «Книжный клуб N»; ещё и в имени папки презентации BC-<стрим>-…'
-                : 'показывается как «Книжный клуб N»'
-            }
-          >
-            <TextInput
-              type="number"
-              min={1}
-              value={stream}
-              onChange={(e) => setStream(e.target.value)}
-              placeholder="113"
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Трансляция YouTube">
-              <TextInput value={youtube} onChange={(e) => setYoutube(e.target.value)} />
-            </Field>
-            <Field label="Трансляция VK">
-              <TextInput value={vk} onChange={(e) => setVk(e.target.value)} />
-            </Field>
-          </div>
-          {kind === 'closed-chapter' && (
-            <Field
-              label="Google Meet (подключиться к обсуждению)"
-              hint="бот выдаст ссылку записавшимся; у докладов созвона нет — это чистовая запись"
-            >
-              <TextInput value={callUrl} onChange={(e) => setCallUrl(e.target.value)} placeholder="https://meet.google.com/…" />
-            </Field>
-          )}
-          <Field label="Доп. материалы" hint="по одному на строку: «название | ссылка»">
-            <TextArea rows={2} value={materialsText} onChange={(e) => setMaterialsText(e.target.value)} />
-          </Field>
-        </div>
-      </Card>
-
-      {kind === 'closed-chapter' && (
-        <Card>
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Книга">
-                <Select
-                  value={folder}
-                  onChange={(e) => {
-                    setFolder(e.target.value)
-                    setChapterSlug('')
-                  }}
-                >
-                  <option value="">— выберите —</option>
-                  {index?.books.map((b) => (
-                    <option key={b.folder} value={b.folder}>
-                      {b.title}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Глава">
-                <Select
-                  value={chapterSlug}
-                  onChange={(e) => setChapterSlug(e.target.value)}
-                  disabled={!book}
-                >
-                  <option value="">— выберите —</option>
-                  {book?.chapters.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Страницы с">
-                <TextInput type="number" value={pagesFrom} onChange={(e) => setPagesFrom(e.target.value)} />
-              </Field>
-              <Field label="по">
-                <TextInput type="number" value={pagesTo} onChange={(e) => setPagesTo(e.target.value)} />
-              </Field>
-            </div>
-            <Field label="Доска для совместной работы — ссылка" hint="Miro, Excalidraw и т.п.; либо загрузите файл ниже">
-              <TextInput value={boardUrl} onChange={(e) => setBoardUrl(e.target.value)} />
-            </Field>
-            <ImagePicker
-              label="…или доска файлом"
-              hint="скриншот доски — заменит ссылку выше"
-              opts={BOARD_OPTS}
-              onChange={setBoardFile}
-            />
-            <Field label="Модераторы обсуждения" hint="из числа спикеров — кто ведёт встречу">
-              <ModeratorPicker
-                speakers={index?.speakers ?? []}
-                selected={moderatorIds}
-                onChange={setModeratorIds}
-              />
-            </Field>
-          </div>
-        </Card>
-      )}
-
-      {kind === 'live-talk' && (
-        <>
-          <Card>
-            <div className="space-y-4">
-              <p className="text-sm font-medium">Программа докладов</p>
-              <p className="text-xs text-muted">
-                Регистрация и заявки спикеров идут через бота — отдельная ссылка не нужна.
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Книга" hint="из глав этой книги бот предложит темы спикерам">
-                  <Select
-                    value={folder}
-                    onChange={(e) => {
-                      setFolder(e.target.value)
-                      setChapterSlug('')
-                      setTopicIds([])
-                      setRecordings({})
-                    }}
-                  >
-                    <option value="">— не привязывать —</option>
-                    {index?.books.map((b) => (
-                      <option key={b.folder} value={b.folder}>
-                        {b.title}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Глава">
-                  <Select
-                    value={chapterSlug}
-                    onChange={(e) => {
-                      setChapterSlug(e.target.value)
-                      setTopicIds([])
-                      setRecordings({})
-                    }}
-                    disabled={!book}
-                  >
-                    <option value="">— выберите —</option>
-                    {book?.chapters.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-            </div>
-          </Card>
-          <Card>
-            <p className="mb-1 text-sm font-medium">Темы этой встречи</p>
-            <p className="mb-4 text-xs text-muted">
-              Отметьте темы, если главу делят на несколько эфиров — встреча (и слоты
-              докладов) покажет только их. Пусто — разбирается вся глава.
-            </p>
-            <EventTopicsPicker
-              chapterSelected={Boolean(book && chapterSlug)}
-              loading={topicsLoading}
-              topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
-              selected={topicIds}
-              onChange={setTopicIds}
-            />
-          </Card>
-          <Card>
-            <p className="mb-1 text-sm font-medium">Темы главы</p>
-            <p className="mb-4 text-xs text-muted">
-              Занятость тем — единый источник в боте (D1): «Освободить» удаляет заявку,
-              назначение создаёт её. Изменения применяются сразу, без сохранения встречи.
-              «Создать презентацию» доступна для каталожного спикера.
-            </p>
-            {!getBotToken() ? (
-              <p className="text-sm text-muted">
-                Для управления темами нужен админ-токен бота (задайте на странице входа).
-              </p>
-            ) : (
-              <EventTopicClaims
-                chapterSelected={Boolean(book && chapterSlug)}
-                loading={topicsLoading}
-                topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
-                claimByTopic={claimByTopic}
-                speakers={index?.speakers ?? []}
-                busyTopic={busyTopic}
-                genBusyId={genId}
-                message={claimsMsg ?? genMsg}
-                onAssign={handleAssign}
-                onFree={handleFree}
-                onGenerate={generateTalk}
-              />
-            )}
-          </Card>
-          <Card>
-            <p className="mb-1 text-sm font-medium">Монтажные ролики докладов</p>
-            <p className="mb-4 text-xs text-muted">
-              Ссылки на чистовые записи докладов — показываются на странице спикера
-              вместо записи всей встречи. Заполняйте после монтажа. Сохраняются с
-              правками встречи (кнопка ниже).
-            </p>
-            {!(book && chapterSlug) ? (
-              <p className="text-sm text-muted">Выберите книгу и главу.</p>
-            ) : topicsLoading ? (
-              <p className="text-sm text-muted">Загружаем темы главы…</p>
-            ) : meetingTopics.length === 0 ? (
-              <p className="text-sm text-muted">В этой главе ещё нет тем.</p>
-            ) : (
-              <div className="space-y-4">
-                {meetingTopics.map((topic) => (
-                  <div key={topic.id} className="space-y-3 rounded-xl border border-line p-4">
-                    <p className="text-sm font-medium">{topic.title}</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Монтаж YouTube">
-                        <TextInput
-                          value={recordings[topic.id]?.youtube ?? ''}
-                          onChange={(e) => setRecording(topic.id, 'youtube', e.target.value)}
-                          placeholder="https://youtu.be/…"
-                        />
-                      </Field>
-                      <Field label="Монтаж VK">
-                        <TextInput
-                          value={recordings[topic.id]?.vk ?? ''}
-                          onChange={(e) => setRecording(topic.id, 'vk', e.target.value)}
-                          placeholder="https://vkvideo.ru/…"
-                        />
-                      </Field>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </>
-      )}
+      <EventFormFields
+        kind={kind}
+        form={form}
+        index={index}
+        topics={topics}
+        topicsLoading={topicsLoading}
+        liveTalkExtra={liveTalkExtra}
+      />
 
       <PublishPanel
         state={state}
