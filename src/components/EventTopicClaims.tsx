@@ -17,6 +17,7 @@ interface EventTopicClaimsProps {
   busyTopic: string | null // идёт assign/release для этой темы
   genBusyId: string | null // идёт генерация презентации
   acceptBusyId: string | null // идёт принятие презентации (мерж PR)
+  acceptedSlides: Set<string> // slides_url принятых презентаций (PR смержен)
   message: string | null
   onAssign: (topicId: string, topicTitle: string, speakerId: string) => void
   onFree: (topicId: string) => void
@@ -35,6 +36,7 @@ export function EventTopicClaims({
   busyTopic,
   genBusyId,
   acceptBusyId,
+  acceptedSlides,
   message,
   onAssign,
   onFree,
@@ -62,6 +64,7 @@ export function EventTopicClaims({
       {topics.map((topic) => {
         const claim = claimByTopic.get(topic.id)
         const busy = busyTopic === topic.id
+        const accepted = Boolean(claim?.slides_url && acceptedSlides.has(claim.slides_url))
         return (
           <div key={topic.id} className="space-y-3 rounded-xl border border-line p-4">
             <div className="flex items-start justify-between gap-3">
@@ -88,14 +91,23 @@ export function EventTopicClaims({
                   )}
                 </p>
                 {claim.slides_url && (
-                  <a
-                    href={claim.slides_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block truncate text-xs text-accent underline"
-                  >
-                    {claim.slides_url}
-                  </a>
+                  <p className="flex items-center gap-2 text-xs">
+                    <a
+                      href={claim.slides_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="min-w-0 truncate text-accent underline"
+                    >
+                      {claim.slides_url}
+                    </a>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 font-medium ${
+                        accepted ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      {accepted ? 'принята' : 'на ревью'}
+                    </span>
+                  </p>
                 )}
                 <div className="flex flex-wrap gap-2">
                   <Button variant="danger" disabled={busy} onClick={() => onFree(topic.id)}>
@@ -110,7 +122,7 @@ export function EventTopicClaims({
                       {genBusyId === topic.id ? 'Создаём…' : 'Создать презентацию (PR)'}
                     </Button>
                   )}
-                  {claim.slides_url && (
+                  {claim.slides_url && !accepted && (
                     <Button
                       disabled={genBusyId !== null || acceptBusyId !== null}
                       onClick={() => onAccept(topic.id)}

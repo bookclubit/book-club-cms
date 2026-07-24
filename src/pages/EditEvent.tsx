@@ -23,7 +23,12 @@ import { materialsToText } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { loadBookMeta, loadChapter } from '../lib/repo'
 import { slugify } from '../lib/slug'
-import { acceptTalkForSlides, dispatchNewTalk, slidesUrl } from '../lib/talksApi'
+import {
+  acceptTalkForSlides,
+  dispatchNewTalk,
+  fetchAcceptedSlides,
+  slidesUrl,
+} from '../lib/talksApi'
 import type { ClubEvent } from '../types'
 
 // Редактирование встречи. Имя файла содержит дату и slug названия, поэтому
@@ -52,6 +57,10 @@ export function EditEvent() {
   const [genId, setGenId] = useState<string | null>(null)
   const [genMsg, setGenMsg] = useState<string | null>(null)
   const [acceptId, setAcceptId] = useState<string | null>(null)
+  // Принятые презентации (slides_url, чьи PR смержены в talks) — для статуса
+  // «принята» вместо кнопки. Дополняется локально сразу после мержа,
+  // т.к. raw-проверка отстаёт на кэш (~5 минут).
+  const [acceptedSlides, setAcceptedSlides] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const ev = event.data
@@ -111,6 +120,23 @@ export function EditEvent() {
   }, [loadClaims])
 
   const claimByTopic = new Map(claims.filter((c) => c.topic_id).map((c) => [c.topic_id!, c]))
+
+  // Проверяем принятость презентаций по main репозитория talks.
+  useEffect(() => {
+    const urls = claims
+      .map((c) => c.slides_url)
+      .filter((u): u is string => Boolean(u))
+    if (urls.length === 0) return
+    let alive = true
+    void fetchAcceptedSlides(urls).then((accepted) => {
+      if (alive && accepted.size > 0) {
+        setAcceptedSlides((prev) => new Set([...prev, ...accepted]))
+      }
+    })
+    return () => {
+      alive = false
+    }
+  }, [claims])
 
   // Темы этой встречи для монтажных ссылок: выбранные (topic_ids) или вся глава.
   const meetingTopics = (topics ?? []).filter(
@@ -253,6 +279,7 @@ export function EditEvent() {
     setAcceptId(topicId)
     try {
       const prNumber = await acceptTalkForSlides(claim.slides_url, getToken() ?? '')
+      setAcceptedSlides((prev) => new Set(prev).add(claim.slides_url!))
       setGenMsg(
         `PR #${prNumber} смержен — презентация принята. Слайды: ${claim.slides_url}, ` +
           'ссылка появится в анонсе встречи (кэш до ~5 минут).',
@@ -301,6 +328,7 @@ export function EditEvent() {
             busyTopic={busyTopic}
             genBusyId={genId}
             acceptBusyId={acceptId}
+            acceptedSlides={acceptedSlides}
             message={claimsMsg ?? genMsg}
             onAssign={handleAssign}
             onFree={handleFree}

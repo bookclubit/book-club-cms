@@ -11,6 +11,10 @@ import type { ContentIndex, LiveTalkEvent } from '../types'
 export const TALKS_OWNER = 'bookclubit'
 export const TALKS_REPO = 'book-club-talks'
 
+// Публичный raw-доступ к main репозитория talks — по нему определяем,
+// принята ли презентация (папка доклада появляется в main при мерже PR).
+const TALKS_RAW_BASE = `https://raw.githubusercontent.com/${TALKS_OWNER}/${TALKS_REPO}/main`
+
 export function talksClient(token: string): GitHubClient {
   return new GitHubClient(token, TALKS_OWNER, TALKS_REPO)
 }
@@ -98,6 +102,27 @@ export function branchFromSlides(slidesUrl: string): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Какие из презентаций уже приняты: папка доклада (из slides_url) есть в main
+ * book-club-talks. Кэш raw ~5 минут, поэтому сразу после мержа результат
+ * дополняют локально (см. EditEvent). raw не поддерживает HEAD — только GET.
+ */
+export async function fetchAcceptedSlides(urls: string[]): Promise<Set<string>> {
+  const checked = await Promise.all(
+    urls.map(async (url) => {
+      const folder = branchFromSlides(url)
+      if (!folder) return undefined
+      try {
+        const res = await fetch(`${TALKS_RAW_BASE}/talks/${folder}/index.html`)
+        return res.ok ? url : undefined
+      } catch {
+        return undefined
+      }
+    }),
+  )
+  return new Set(checked.filter((u): u is string => Boolean(u)))
 }
 
 /**
