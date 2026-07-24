@@ -23,7 +23,7 @@ import { materialsToText } from '../lib/materials'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { loadBookMeta, loadChapter } from '../lib/repo'
 import { slugify } from '../lib/slug'
-import { dispatchNewTalk, slidesUrl } from '../lib/talksApi'
+import { acceptTalkForSlides, dispatchNewTalk, slidesUrl } from '../lib/talksApi'
 import type { ClubEvent } from '../types'
 
 // Редактирование встречи. Имя файла содержит дату и slug названия, поэтому
@@ -51,6 +51,7 @@ export function EditEvent() {
   // генерация презентации доклада (repository_dispatch в talks)
   const [genId, setGenId] = useState<string | null>(null)
   const [genMsg, setGenMsg] = useState<string | null>(null)
+  const [acceptId, setAcceptId] = useState<string | null>(null)
 
   useEffect(() => {
     const ev = event.data
@@ -241,6 +242,28 @@ export function EditEvent() {
     }
   }
 
+  // Принять презентацию: мержит PR доклада в book-club-talks — слайды
+  // публикуются на боевом URL, и ссылка появляется в анонсе встречи в miniapp.
+  async function acceptTalk(topicId: string) {
+    const claim = claimByTopic.get(topicId)
+    setGenMsg(null)
+    if (!claim?.slides_url) {
+      return setGenMsg('У темы нет ссылки на слайды — сначала создайте презентацию')
+    }
+    setAcceptId(topicId)
+    try {
+      const prNumber = await acceptTalkForSlides(claim.slides_url, getToken() ?? '')
+      setGenMsg(
+        `PR #${prNumber} смержен — презентация принята. Слайды: ${claim.slides_url}, ` +
+          'ссылка появится в анонсе встречи (кэш до ~5 минут).',
+      )
+    } catch (e) {
+      setGenMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAcceptId(null)
+    }
+  }
+
   if (event.loading) return <p className="text-sm text-muted">Загружаем встречу…</p>
   if (event.error) return <ErrorBox>{event.error}</ErrorBox>
   if (!event.data) {
@@ -260,7 +283,9 @@ export function EditEvent() {
         <p className="mb-4 text-xs text-muted">
           Занятость тем — единый источник в боте (D1): «Освободить» удаляет заявку,
           назначение создаёт её. Изменения применяются сразу, без сохранения встречи.
-          «Создать презентацию» доступна для каталожного спикера.
+          «Создать презентацию» доступна для каталожного спикера; «Принять
+          презентацию» мержит PR доклада — после этого ссылка на слайды видна в
+          анонсе встречи.
         </p>
         {!getBotToken() ? (
           <p className="text-sm text-muted">
@@ -275,10 +300,12 @@ export function EditEvent() {
             speakers={index?.speakers ?? []}
             busyTopic={busyTopic}
             genBusyId={genId}
+            acceptBusyId={acceptId}
             message={claimsMsg ?? genMsg}
             onAssign={handleAssign}
             onFree={handleFree}
             onGenerate={generateTalk}
+            onAccept={acceptTalk}
           />
         )}
       </Card>

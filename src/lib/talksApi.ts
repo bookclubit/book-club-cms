@@ -101,6 +101,31 @@ export function branchFromSlides(slidesUrl: string): string | null {
 }
 
 /**
+ * Принимает презентацию: мержит открытый PR доклада в book-club-talks.
+ * После мержа deploy.yml публикует слайды на боевом URL, и ссылка появляется
+ * в анонсе встречи в miniapp (кнопка «Слайды» показывается только для принятых).
+ * Ветку после мержа удаляем (best-effort). Возвращает номер смерженного PR.
+ */
+export async function acceptTalkForSlides(
+  slidesUrl: string,
+  githubToken: string,
+): Promise<number> {
+  const branch = branchFromSlides(slidesUrl)
+  if (!branch) throw new Error('Не удалось определить ветку доклада по ссылке на слайды')
+
+  const gh = talksClient(githubToken)
+  const [pr] = await gh.listPullRequestsByHead(branch)
+  if (!pr) {
+    throw new Error(
+      `Открытый PR ветки ${branch} не найден — презентация уже принята или PR ещё не создан`,
+    )
+  }
+  await gh.mergePullRequest(pr.number)
+  await gh.deleteBranch(branch)
+  return pr.number
+}
+
+/**
  * Убирает за отменённой заявкой хвост в book-club-talks: закрывает открытый PR
  * доклада и удаляет его ветку. Best-effort — молча пропускает, если ветки/PR уже
  * нет. Возвращает имя вычищенной ветки (или null, если чистить нечего).

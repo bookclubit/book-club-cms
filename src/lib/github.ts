@@ -224,6 +224,14 @@ export class GitHubClient {
     )
   }
 
+  // Мержит PR (merge-коммит — как при мерже в вебе GitHub).
+  async mergePullRequest(number: number): Promise<void> {
+    await this.request(`${this.repoPath}/pulls/${number}/merge`, {
+      method: 'PUT',
+      body: {},
+    })
+  }
+
   async closePullRequest(number: number): Promise<void> {
     await this.request(`${this.repoPath}/pulls/${number}`, {
       method: 'PATCH',

@@ -16,10 +16,12 @@ interface EventTopicClaimsProps {
   speakers: IndexSpeaker[]
   busyTopic: string | null // идёт assign/release для этой темы
   genBusyId: string | null // идёт генерация презентации
+  acceptBusyId: string | null // идёт принятие презентации (мерж PR)
   message: string | null
   onAssign: (topicId: string, topicTitle: string, speakerId: string) => void
   onFree: (topicId: string) => void
   onGenerate: (topicId: string) => void
+  onAccept: (topicId: string) => void
 }
 
 // Управление темами встречи: занятость берётся из заявок D1 (тот же источник,
@@ -32,10 +34,12 @@ export function EventTopicClaims({
   speakers,
   busyTopic,
   genBusyId,
+  acceptBusyId,
   message,
   onAssign,
   onFree,
   onGenerate,
+  onAccept,
 }: EventTopicClaimsProps) {
   if (!chapterSelected) {
     return (
@@ -100,10 +104,18 @@ export function EventTopicClaims({
                   {claim.speaker_id && (
                     <Button
                       variant="ghost"
-                      disabled={genBusyId !== null}
+                      disabled={genBusyId !== null || acceptBusyId !== null}
                       onClick={() => onGenerate(topic.id)}
                     >
                       {genBusyId === topic.id ? 'Создаём…' : 'Создать презентацию (PR)'}
+                    </Button>
+                  )}
+                  {claim.slides_url && (
+                    <Button
+                      disabled={genBusyId !== null || acceptBusyId !== null}
+                      onClick={() => onAccept(topic.id)}
+                    >
+                      {acceptBusyId === topic.id ? 'Принимаем…' : 'Принять презентацию'}
                     </Button>
                   )}
                 </div>
