@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   buildEventFiles,
   EventFormFields,
@@ -22,7 +22,7 @@ import {
 } from '../lib/botApi'
 import { useChapterTopics, useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { materialsToText } from '../lib/materials'
-import { openContentPR, toJSON, type FileChange } from '../lib/pr'
+import { commitToPR, openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { loadBookMeta, loadChapter } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import {
@@ -38,15 +38,31 @@ import type { ClubEvent } from '../types'
 // index.json пересоберётся автоматически после мержа.
 export function EditEvent() {
   const { dir = '', file = '' } = useParams()
+  const [params] = useSearchParams()
   const gh = useDataClient()
   const { data: index } = useIndex(gh)
   const { state, publish, reset } = usePublish()
 
   const kind = dir === 'closed-chapters' ? 'closed-chapter' : 'live-talk'
-  const event = useLoad(
-    () => gh.getFileJson<ClubEvent>(`events/${dir}/${file}`),
-    [gh, dir, file],
-  )
+
+  // ?pr=<номер> — правим встречу, которая ещё не смержена: читаем файл с ветки
+  // этого pull request-а и дописываем правки туда же, не открывая второй PR.
+  const prNumber = Number(params.get('pr')) > 0 ? Number(params.get('pr')) : null
+  const source = useLoad(async () => {
+    const pr = prNumber ? await gh.getPullRequest(prNumber) : null
+    const data = await gh.getFileJson<ClubEvent>(
+      `events/${dir}/${file}`,
+      pr?.head?.ref ?? 'main',
+    )
+    return { pr, data }
+  }, [gh, dir, file, prNumber])
+
+  const pr = source.data?.pr ?? null
+  const event = {
+    data: source.data?.data ?? null,
+    loading: source.loading,
+    error: source.error,
+  }
 
   const form = useEventFormState()
 
@@ -173,23 +189,27 @@ export function EditEvent() {
       const renamed = newPath !== oldPath
       if (renamed) files.push({ path: oldPath, content: null })
 
-      const result = await openContentPR(gh, {
-        branch: `cms/edit-event-${form.date}-${slug}`,
-        title: `fix(events): обновить встречу «${form.title.trim()}» (${form.date})`,
-        body: [
-          `Правки встречи **${form.title.trim()}**.`,
-          '',
-          `- \`${newPath}\``,
-          renamed ? `- файл перенесён (был \`${oldPath}\`)` : null,
-          '',
-          '`index.json` пересоберётся автоматически после мержа.',
-          '',
-          '_Обновлено через CMS Книжного клуба._',
-        ]
-          .filter((line): line is string => line !== null)
-          .join('\n'),
-        files,
-      })
+      const message = `fix(events): обновить встречу «${form.title.trim()}» (${form.date})`
+      // Встреча из открытого PR — дописываем коммит в его ветку, иначе новый PR.
+      const result = pr
+        ? await commitToPR(gh, { pr, message, files })
+        : await openContentPR(gh, {
+            branch: `cms/edit-event-${form.date}-${slug}`,
+            title: message,
+            body: [
+              `Правки встречи **${form.title.trim()}**.`,
+              '',
+              `- \`${newPath}\``,
+              renamed ? `- файл перенесён (был \`${oldPath}\`)` : null,
+              '',
+              '`index.json` пересоберётся автоматически после мержа.',
+              '',
+              '_Обновлено через CMS Книжного клуба._',
+            ]
+              .filter((line): line is string => line !== null)
+              .join('\n'),
+            files,
+          })
 
       // Обновляем у бота снимок встречи и афишу дня: он берёт поля из формы,
       // потому что правки лежат в открытом PR. Анонс повторно не публикуется —
@@ -406,12 +426,27 @@ export function EditEvent() {
       <PageHeader
         title={kind === 'closed-chapter' ? 'Открытое обсуждение' : 'Эфир докладов'}
         hint={
-          <>
-            <Mono>
-              events/{dir}/{file}
-            </Mono>{' '}
-            — смена даты или названия перенесёт файл автоматически
-          </>
+          pr ? (
+            <>
+              Правим <a
+                href={pr.html_url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-line-strong underline-offset-2"
+              >
+                PR&nbsp;#{pr.number}
+              </a>{' '}
+              — встреча ещё не смержена, правки уйдут в ту же ветку{' '}
+              <Mono>{pr.head.ref}</Mono>
+            </>
+          ) : (
+            <>
+              <Mono>
+                events/{dir}/{file}
+              </Mono>{' '}
+              — смена даты или названия перенесёт файл автоматически
+            </>
+          )
         }
       />
 
@@ -456,7 +491,8 @@ export function EditEvent() {
         onReset={reset}
         disabled={!ready}
         disabledReason="Заполните название, дату и обязательные поля типа встречи"
-        submitLabel="Создать pull request с правками"
+        submitLabel={pr ? `Дописать правки в PR #${pr.number}` : 'Создать pull request с правками'}
+        updated={Boolean(pr)}
       />
     </div>
   )

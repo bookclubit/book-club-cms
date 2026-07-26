@@ -10,6 +10,7 @@ export function PublishPanel({
   disabled,
   disabledReason,
   submitLabel = 'Создать pull request',
+  updated = false,
 }: {
   state: PublishState
   onSubmit: () => void
@@ -17,13 +18,18 @@ export function PublishPanel({
   disabled?: boolean
   disabledReason?: string
   submitLabel?: string
+  // Правки дописаны в уже открытый PR, а не открыт новый.
+  updated?: boolean
 }) {
   if (state.phase === 'done') {
     return (
       <div className="rounded-card border border-line bg-surface p-5">
-        <p className="text-[13px] font-semibold text-ink">Pull request открыт</p>
+        <p className="text-[13px] font-semibold text-ink">
+          {updated ? 'Pull request обновлён' : 'Pull request открыт'}
+        </p>
         <p className="mt-1.5 text-sm text-ink-soft">
-          Ветка <span className="font-mono text-xs">{state.result.branch}</span> → PR&nbsp;#
+          {updated ? 'Новый коммит в ветке ' : 'Ветка '}
+          <span className="font-mono text-xs">{state.result.branch}</span> → PR&nbsp;#
           {state.result.number}. Проверьте изменения и смержите.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">

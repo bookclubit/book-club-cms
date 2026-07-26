@@ -210,6 +210,19 @@ export class GitHubClient {
     })
   }
 
+  async getPullRequest(number: number): Promise<PullRequestInfo> {
+    return this.request<PullRequestInfo>(`${this.repoPath}/pulls/${number}`)
+  }
+
+  /** Файлы pull request-а: путь и что с ним стало (added/modified/removed). */
+  async listPullRequestFiles(
+    number: number,
+  ): Promise<Array<{ filename: string; status: string }>> {
+    return this.request<Array<{ filename: string; status: string }>>(
+      `${this.repoPath}/pulls/${number}/files?per_page=100`,
+    )
+  }
+
   async listOpenPullRequests(): Promise<PullRequestInfo[]> {
     return this.request<PullRequestInfo[]>(
       `${this.repoPath}/pulls?state=open&per_page=30`,

@@ -12,8 +12,16 @@ import {
   Th,
   Tr,
 } from '../components/ui'
+import type { PullRequestInfo } from '../lib/github'
 import { useDataClient, useIndex, useLoad } from '../lib/hooks'
 import type { ClubEvent } from '../types'
+
+// Встреча, которая пока живёт только в открытом pull request-е.
+interface PendingEvent {
+  pr: PullRequestInfo
+  dir: string
+  file: string
+}
 
 interface EventRow {
   path: string
@@ -55,6 +63,32 @@ export function Events() {
     )
   }, [gh, index])
 
+  // Встречи в открытых PR-ах: в main их ещё нет, поэтому в таблице выше они не
+  // видны — а дорабатывать их (догрузить афишу, поправить ссылки) нужно до мержа.
+  const pending = useLoad<PendingEvent[]>(async () => {
+    const prs = await gh.listOpenPullRequests()
+    const found = await Promise.all(
+      prs.map(async (pr) => {
+        const files = await gh.listPullRequestFiles(pr.number)
+        // Берём тот файл встречи, который в ветке существует: у переносов
+        // (сменили дату/название) в PR есть и удалённый старый путь.
+        const path = files
+          .filter((f) => f.status !== 'removed')
+          .map((f) => f.filename)
+          .find((name) => /^events\/[^/]+\/[^/]+\.json$/.test(name))
+        if (!path) return null
+        const rest = path.slice('events/'.length)
+        const slash = rest.indexOf('/')
+        return {
+          pr,
+          dir: rest.slice(0, slash),
+          file: rest.slice(slash + 1),
+        }
+      }),
+    )
+    return found.filter((p): p is PendingEvent => p !== null)
+  }, [gh])
+
   const all = rows.data ?? []
   const active = all.filter((r) => !r.event?.finished)
   const archive = all.filter((r) => r.event?.finished)
@@ -74,6 +108,46 @@ export function Events() {
           </Link>
         }
       />
+
+      {(pending.data?.length ?? 0) > 0 && (
+        <section className="mb-6 rounded-card border border-line bg-surface-2 p-5">
+          <p className="text-[13px] font-semibold">Ждут мержа · {pending.data?.length}</p>
+          <p className="mt-1 text-xs text-ink-soft">
+            Эти встречи пока только в pull request-ах — в списке ниже они появятся после
+            мержа. «Доработать» правит тот же PR: можно догрузить афишу, поправить ссылки
+            или дату, второй PR не создастся.
+          </p>
+          <ul className="mt-4 space-y-2">
+            {pending.data?.map(({ pr, dir, file }) => (
+              <li
+                key={pr.number}
+                className="flex flex-wrap items-center gap-3 rounded-control border border-line bg-surface px-3 py-2"
+              >
+                <div className="min-w-0 grow">
+                  <span className="block text-[13px] font-medium">{pr.title}</span>
+                  <span className="text-xs text-ink-faint">
+                    PR #{pr.number} · <span className="font-mono">{file}</span>
+                  </span>
+                </div>
+                <Link
+                  to={`/events/${dir}/${encodeURIComponent(file)}/edit?pr=${pr.number}`}
+                  className={primaryLinkClass}
+                >
+                  Доработать
+                </Link>
+                <a
+                  href={pr.html_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[13px] text-ink-soft underline decoration-line underline-offset-2 transition-colors duration-120 ease-out hover:text-ink"
+                >
+                  На GitHub
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="mb-5 flex flex-wrap gap-1.5">
         <TabButton active={tab === 'active'} onClick={() => setTab('active')}>

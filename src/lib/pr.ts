@@ -1,7 +1,7 @@
 // Движок публикации: набор файлов → ветка → один коммит → pull request.
 // Использует Git Data API, чтобы текст и бинарные WebP легли одним коммитом.
 
-import { GitHubClient, GitHubError, type TreeEntry } from './github'
+import { GitHubClient, GitHubError, type PullRequestInfo, type TreeEntry } from './github'
 
 export interface FileChange {
   path: string
@@ -71,6 +71,35 @@ export async function openContentPR(
 
   const pr = await gh.createPullRequest(branch, base, options.title, options.body)
   return { number: pr.number, url: pr.html_url, branch }
+}
+
+/**
+ * Дописывает коммит в ветку уже открытого pull request-а — правки уходят в тот
+ * же PR, а не во второй. Так можно доводить встречу (например, догрузить афишу)
+ * до того, как её смержили: в main файла ещё нет, он живёт только в ветке.
+ */
+export async function commitToPR(
+  gh: GitHubClient,
+  options: { pr: PullRequestInfo; message: string; files: FileChange[] },
+): Promise<OpenPRResult> {
+  const branch = options.pr.head.ref
+  const headSha = await gh.getBranchHead(branch)
+  const baseTreeSha = await gh.getCommitTreeSha(headSha)
+
+  const entries: TreeEntry[] = await Promise.all(
+    options.files.map(async (file) => ({
+      path: file.path,
+      mode: '100644' as const,
+      type: 'blob' as const,
+      sha: file.content === null ? null : await gh.createBlob(file.content),
+    })),
+  )
+
+  const treeSha = await gh.createTree(baseTreeSha, entries)
+  const commitSha = await gh.createCommit(options.message, treeSha, headSha)
+  await gh.updateBranchHead(branch, commitSha)
+
+  return { number: options.pr.number, url: options.pr.html_url, branch }
 }
 
 // JSON в стиле репозитория: 2 пробела, перевод строки в конце (prettier-совместимо).
