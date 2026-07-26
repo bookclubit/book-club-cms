@@ -34,8 +34,6 @@ export function useEventFormState() {
   const [time, setTime] = useState('19:00')
   const [callUrl, setCallUrl] = useState('')
   const [materialsText, setMaterialsText] = useState('')
-  // Задание к встрече: что прочитать и подготовить (идёт в посты бота и в данные).
-  const [assignment, setAssignment] = useState('')
   // Афиши для постов в группу: анонс сразу и афиша в день встречи.
   const [posterAnnounce, setPosterAnnounce] = useState<Uint8Array | null>(null)
   const [posterDay, setPosterDay] = useState<Uint8Array | null>(null)
@@ -69,7 +67,6 @@ export function useEventFormState() {
     time, setTime,
     callUrl, setCallUrl,
     materialsText, setMaterialsText,
-    assignment, setAssignment,
     posterAnnounce, setPosterAnnounce,
     posterDay, setPosterDay,
     announce, setAnnounce,
@@ -126,7 +123,6 @@ export function buildEventFiles(opts: {
     ...(kind === 'closed-chapter' && form.callUrl.trim()
       ? { call_url: form.callUrl.trim() }
       : {}),
-    ...(form.assignment.trim() ? { assignment: form.assignment.trim() } : {}),
     ...(materials.length > 0 ? { materials } : {}),
     ...(form.finished ? { finished: true } : {}),
   }
@@ -296,17 +292,6 @@ export function EventFormFields({
               rows={2}
               value={form.materialsText}
               onChange={(e) => form.setMaterialsText(e.target.value)}
-            />
-          </Field>
-          <Field
-            label="Задание к встрече"
-            hint="что прочитать и подготовить — попадёт в пост бота и в данные встречи"
-          >
-            <TextArea
-              rows={2}
-              value={form.assignment}
-              onChange={(e) => form.setAssignment(e.target.value)}
-              placeholder="прочитать главу 1 и выписать вопросы"
             />
           </Field>
         </div>

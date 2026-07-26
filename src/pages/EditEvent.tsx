@@ -78,7 +78,6 @@ export function EditEvent() {
     form.setVk(ev.streams?.vk ?? '')
     form.setStream(ev.stream ? String(ev.stream) : '')
     form.setFinished(ev.finished ?? false)
-    form.setAssignment(ev.assignment ?? '')
     if (ev.type === 'closed-chapter') {
       form.setFolder(index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
       form.setChapterSlug(ev.chapter)
