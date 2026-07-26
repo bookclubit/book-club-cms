@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MemberRequests } from '../components/MemberRequests'
 import { Button, ErrorBox, Loading, PageHeader } from '../components/ui'
 import { getToken } from '../lib/auth'
 import {
@@ -297,9 +298,15 @@ export function Claims() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Заявки спикеров"
-        hint="Заявки приходят из бота (/speaker). Подтверждение занимает тему главы."
+        title="Заявки"
+        hint="Заявки на участие в клубе открывают доступ к темам, заявки на доклад занимают тему главы. Приходят из приложения и из бота."
       />
+
+      <MemberRequests />
+
+      <h2 className="pt-2 text-sm font-semibold uppercase tracking-wide text-ink-soft">
+        Заявки на доклады
+      </h2>
 
       {error && <ErrorBox>{error}</ErrorBox>}
       {claims === null && !error && <Loading label="Загружаем заявки…" />}

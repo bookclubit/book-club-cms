@@ -114,6 +114,49 @@ export async function fetchClaimPhoto(id: number): Promise<Blob> {
   return res.blob()
 }
 
+// ── Заявки на участие в клубе ────────────────────────────────────────────────
+
+/**
+ * Заявка на участие (см. membership_requests в боте). Пока её не одобрят,
+ * человек не может брать темы докладов — ни в боте, ни в приложении.
+ */
+export interface MembershipRequest {
+  id: number
+  chat_id: number
+  username: string | null
+  full_name: string | null
+  /** Сообщение заявителя: о себе и о чём хочет рассказать. */
+  about: string | null
+  photo_file_id: string | null
+  /** Аватар Telegram (у заявок из приложения). */
+  photo_url: string | null
+  source: 'bot' | 'miniapp'
+  status: 'pending' | 'approved' | 'declined'
+  created_at: number
+  decided_at: number | null
+}
+
+export async function listMembers(): Promise<MembershipRequest[]> {
+  const res = await adminFetch('/api/admin/members')
+  const data = (await res.json()) as { members: MembershipRequest[] }
+  return data.members
+}
+
+/** Решение по заявке: бот сам сообщит человеку (если он писал боту). */
+export async function decideMember(id: number, action: 'approve' | 'decline'): Promise<void> {
+  await adminFetch('/api/admin/members', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, action }),
+  })
+}
+
+/** Фото из заявки на участие (JPEG) — для аватарки при оформлении спикером. */
+export async function fetchMemberPhoto(id: number): Promise<Blob> {
+  const res = await adminFetch(`/api/admin/photo?member=${id}`)
+  return res.blob()
+}
+
 // ── Анонсы встреч в группу клуба ─────────────────────────────────────────────
 
 /** Поля встречи, которые бот кладёт в пост (совпадают с events/*.json). */

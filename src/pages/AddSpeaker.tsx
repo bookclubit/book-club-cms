@@ -8,7 +8,7 @@ import {
   SpeakerSocialsFields,
 } from '../components/SpeakerSocialsFields'
 import { Card, Field, PageHeader, TextArea, TextInput } from '../components/ui'
-import { fetchClaimPhoto, listSpeakerClaims } from '../lib/botApi'
+import { fetchClaimPhoto, fetchMemberPhoto, listMembers, listSpeakerClaims } from '../lib/botApi'
 import { AVATAR_OPTS, fileToWebP } from '../lib/image'
 import { useDataClient, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
@@ -61,6 +61,42 @@ export function AddSpeaker() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claimId])
+
+  // ?member=<id> — предзаполнение из заявки на участие в клубе. Telegram важен:
+  // по нему бот узнаёт спикера и открывает ему темы без повторных заявок.
+  const memberId = Number(params.get('member'))
+  useEffect(() => {
+    if (!Number.isFinite(memberId) || memberId <= 0) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const member = (await listMembers()).find((m) => m.id === memberId)
+        if (!member || cancelled) return
+        const parts = (member.full_name ?? '').trim().split(/\s+/)
+        if (parts.length > 0) setFirstName(parts[0])
+        if (parts.length > 1) setSurname(parts.slice(1).join(' '))
+        if (member.username) {
+          setSocials((prev) => ({ ...prev, telegram: `https://t.me/${member.username}` }))
+        }
+        if (member.about) setBio(member.about)
+        setPrefillNote(`Из заявки на участие #${member.id}${member.username ? ` (@${member.username})` : ''}`)
+        if (member.photo_file_id) {
+          const blob = await fetchMemberPhoto(member.id)
+          const file = new File([blob], 'avatar.jpg', { type: blob.type || 'image/jpeg' })
+          const bytes = await fileToWebP(file, AVATAR_OPTS)
+          if (cancelled) return
+          setAvatar(bytes)
+          setPrefillPreview(URL.createObjectURL(new Blob([bytes.slice()], { type: 'image/webp' })))
+        }
+      } catch (err) {
+        if (!cancelled) setPrefillNote(err instanceof Error ? err.message : String(err))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberId])
 
   // id формата <фамилия>-<имя>: pomazkov-anton
   const speakerId =
