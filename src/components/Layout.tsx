@@ -18,6 +18,7 @@ const groups: Array<{ title: string; links: Array<{ to: string; label: string; e
     title: 'Клуб',
     links: [
       { to: '/events', label: 'Встречи' },
+      { to: '/posts', label: 'Посты' },
       { to: '/speakers', label: 'Спикеры' },
       { to: '/claims', label: 'Заявки' },
     ],

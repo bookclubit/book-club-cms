@@ -66,20 +66,24 @@ export function AddEvent() {
         files,
       })
 
-      // Анонс в группу клуба: встречи ещё нет в book-club-data (PR открыт),
-      // поэтому бот получает поля формы. Сбой анонса не отменяет PR.
+      // Посты о встрече: встречи ещё нет в book-club-data (PR открыт), поэтому
+      // бот получает поля формы. Он только готовит тексты — публикуете вы
+      // в разделе «Посты». Сбой подготовки не отменяет PR.
       if (form.announce) {
         try {
           await announceEvent(announcePayload(event), {
             announce: form.posterAnnounce,
             day: form.posterDay,
           })
-          setAnnounceNote({ ok: true, text: 'Анонс опубликован в группе клуба.' })
+          setAnnounceNote({
+            ok: true,
+            text: 'Посты подготовлены — проверьте текст и опубликуйте в разделе «Посты».',
+          })
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err)
           setAnnounceNote({
             ok: false,
-            text: `Пул-реквест создан, но анонс не ушёл: ${reason}`,
+            text: `Пул-реквест создан, но посты не подготовились: ${reason}`,
           })
         }
       }

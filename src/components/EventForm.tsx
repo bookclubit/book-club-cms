@@ -446,8 +446,8 @@ export function EventFormFields({
       {/* Афиши — последним блоком: это уже не про содержание встречи,
           а про то, как она уйдёт в группу. */}
       <Card>
-        <CardTitle hint="Анонс уходит в группу сразу после создания встречи, афиша дня — в 10:00 МСК, напоминание — за 5 минут до начала">
-          Посты в группу клуба
+        <CardTitle hint="Бот подготовит анонс, афишу дня и напоминание. Публикуете вы — в разделе «Посты», сами выбирая время и группы">
+          Посты о встрече
         </CardTitle>
         <div className="space-y-4">
           <label className="flex items-start gap-2.5">
@@ -458,9 +458,9 @@ export function EventFormFields({
               className="mt-0.5 h-4 w-4 accent-ink"
             />
             <span className="text-[13px] text-ink">
-              Публиковать посты о встрече
+              Подготовить посты о встрече
               <span className="block text-xs text-ink-faint">
-                чат задаётся командой /anons_here в самой группе
+                тексты появятся в разделе «Посты»; группы подключаются командой /anons_here
               </span>
             </span>
           </label>
@@ -471,7 +471,7 @@ export function EventFormFields({
           />
           <PosterPicker
             label="Афиша в день встречи"
-            hint="можно загрузить позже правкой встречи"
+            hint="можно загрузить позже правкой встречи — пост ждёт публикации"
             onChange={(p) => form.setPosterDay(p?.bytes ?? null)}
           />
         </div>

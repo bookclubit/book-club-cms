@@ -189,11 +189,12 @@ function toBase64(bytes: Uint8Array): string {
 }
 
 /**
- * Просит бота анонсировать встречу: он сразу постит анонс в группу клуба и
- * планирует афишу в день встречи и напоминание за 5 минут до начала.
+ * Просит бота подготовить посты о встрече: анонс, афишу дня и напоминание.
+ * Ничего не публикуется — тексты ждут в разделе «Посты», где их можно
+ * поправить и отправить в выбранные группы.
  *
  * Встречу передаём полями формы, а не ссылкой на файл: в book-club-data она
- * появится только после мержа pull request-а, а анонс нужен сразу.
+ * появится только после мержа pull request-а, а посты нужны раньше.
  */
 export async function announceEvent(
   event: AnnounceEventPayload,
@@ -238,4 +239,71 @@ export function announcePayload(event: ClubEvent): AnnounceEventPayload {
       ? { moderators: event.moderators.map((m) => ({ name: m.name })) }
       : {}),
   }
+}
+
+// ── Черновики постов о встрече ───────────────────────────────────────────────
+
+/** Группа или канал клуба, подключённые командой /anons_here. */
+export interface AnnounceChat {
+  chat_id: number
+  title: string | null
+  added_at: number
+}
+
+/** Пост о встрече, подготовленный ботом и ждущий публикации. */
+export interface PostDraft {
+  id: number
+  event_id: string
+  kind: 'announce' | 'day' | 'soon'
+  /** «Анонс» / «Афиша дня» / «Напоминание» — заголовок от бота. */
+  kind_title: string
+  /** Когда такой пост обычно публикуют (подсказка, не расписание). */
+  kind_when: string
+  event_title: string | null
+  event_date: string | null
+  event_time: string | null
+  text: string
+  /** Текст правили руками — пересборка встречи его не затирает. */
+  edited: boolean
+  has_poster: boolean
+  status: 'pending' | 'sent'
+  sent_at: number | null
+  sent_to: { chat_id: number; message_id: number | null }[] | null
+  updated_at: number
+}
+
+export async function listPosts(): Promise<{ posts: PostDraft[]; chats: AnnounceChat[] }> {
+  const res = await adminFetch('/api/admin/posts')
+  return (await res.json()) as { posts: PostDraft[]; chats: AnnounceChat[] }
+}
+
+async function postAction<T>(body: Record<string, unknown>): Promise<T> {
+  const res = await adminFetch('/api/admin/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return (await res.json()) as T
+}
+
+/** Публикация: без chatIds — во все подключённые группы. */
+export async function publishPost(
+  id: number,
+  chatIds?: number[],
+): Promise<{ sent_to: { chat_id: number; message_id: number | null }[]; errors: string[] }> {
+  return postAction({ action: 'publish', id, ...(chatIds?.length ? { chat_ids: chatIds } : {}) })
+}
+
+export async function savePostText(id: number, text: string): Promise<void> {
+  await postAction({ action: 'text', id, text })
+}
+
+/** Пересобрать текст из данных клуба (книга, глава, спикеры, презентации). */
+export async function refreshPostText(id: number): Promise<string> {
+  const data = await postAction<{ text: string }>({ action: 'refresh', id })
+  return data.text
+}
+
+export async function deletePost(id: number): Promise<void> {
+  await postAction({ action: 'delete', id })
 }

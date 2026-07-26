@@ -211,16 +211,19 @@ export function EditEvent() {
             files,
           })
 
-      // Обновляем у бота снимок встречи и афишу дня: он берёт поля из формы,
-      // потому что правки лежат в открытом PR. Анонс повторно не публикуется —
-      // бот помнит, что он уже вышел.
+      // Обновляем у бота снимок встречи и афиши: он берёт поля из формы, потому
+      // что правки лежат в открытом PR. Уже опубликованные посты и текст,
+      // который правили руками, не затираются.
       if (form.announce) {
         try {
           await announceEvent(announcePayload(next), {
             announce: form.posterAnnounce,
             day: form.posterDay,
           })
-          setAnnounceNote({ ok: true, text: 'План постов о встрече обновлён.' })
+          setAnnounceNote({
+            ok: true,
+            text: 'Посты обновлены — опубликовать их можно в разделе «Посты».',
+          })
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err)
           setAnnounceNote({ ok: false, text: `Не удалось обновить посты бота: ${reason}` })
