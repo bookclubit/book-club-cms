@@ -1,53 +1,58 @@
 import { Link } from 'react-router-dom'
-import { ErrorBox, SectionTitle } from '../components/ui'
+import { EmptyState, ErrorBox, Loading, Mono, PageHeader } from '../components/ui'
 import { useDataClient, useIndex } from '../lib/hooks'
 import { mediaUrl } from '../lib/repo'
 
-// Список спикеров из реестра; каждого можно открыть на редактирование.
+// Спикеры клуба: аватарка, имя и алиасы (по алиасам темы связываются со спикером).
 export function Speakers() {
   const gh = useDataClient()
   const { data: index, error, loading } = useIndex(gh)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <SectionTitle>Спикеры</SectionTitle>
-        <Link
-          to="/speakers/new"
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/85"
-        >
-          + Добавить спикера
-        </Link>
-      </div>
+    <div>
+      <PageHeader
+        title="Спикеры"
+        hint="Имя и алиасы связывают спикера с темами глав и заявками на доклады."
+        action={
+          <Link
+            to="/speakers/new"
+            className="inline-flex items-center whitespace-nowrap rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
+          >
+            Новый спикер
+          </Link>
+        }
+      />
 
-      {loading && <p className="text-sm text-muted">Загружаем реестр…</p>}
+      {loading && <Loading label="Загружаем реестр…" />}
       {error && <ErrorBox>{error}</ErrorBox>}
       {index?.speakers.length === 0 && (
-        <p className="text-sm text-muted">Спикеров пока нет — добавьте первого.</p>
+        <EmptyState title="Спикеров пока нет" hint="Добавьте первого — с аватаркой в WebP." />
       )}
 
-      <ul className="space-y-2">
+      <ul className="grid gap-2 sm:grid-cols-2">
         {index?.speakers.map((s) => (
           <li key={s.id}>
             <Link
               to={`/speakers/${s.id}/edit`}
-              className="flex items-center justify-between gap-4 rounded-xl border border-line bg-white px-4 py-3 transition hover:border-ink/30"
+              className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 transition-colors duration-120 ease-out hover:border-line-strong hover:bg-surface-2"
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <img
-                  src={mediaUrl(s.avatar)}
-                  alt=""
-                  className="h-10 w-10 shrink-0 rounded-full border border-line object-cover"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{s.name}</p>
-                  <p className="truncate text-xs text-muted">
-                    <code>{s.id}</code>
-                    {s.aliases.length > 0 && ` · ${s.aliases.join(', ')}`}
-                  </p>
-                </div>
+              <img
+                src={mediaUrl(s.avatar)}
+                alt=""
+                width={40}
+                height={40}
+                loading="lazy"
+                className="h-10 w-10 shrink-0 rounded-full border border-line object-cover"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink">{s.name}</p>
+                <p className="truncate">
+                  <Mono>{s.id}</Mono>
+                  {s.aliases.length > 0 && (
+                    <span className="ml-1.5 text-xs text-ink-faint">{s.aliases.join(', ')}</span>
+                  )}
+                </p>
               </div>
-              <span className="shrink-0 text-sm text-accent">Редактировать</span>
             </Link>
           </li>
         ))}

@@ -7,6 +7,8 @@ import {
   Card,
   ErrorBox,
   Field,
+  Mono,
+  PageHeader,
   Select,
   TextArea,
   TextInput,
@@ -158,7 +160,7 @@ export function EditBook() {
     })
   }
 
-  if (meta.loading) return <p className="text-sm text-muted">Загружаем meta.json…</p>
+  if (meta.loading) return <p className="text-sm text-ink-soft">Загружаем meta.json…</p>
   if (meta.error) return <ErrorBox>{meta.error}</ErrorBox>
   if (!meta.data) {
     return (
@@ -170,10 +172,14 @@ export function EditBook() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">
-        Редактирование <code>books/{folder}</code> · id <code>{meta.data.id}</code>{' '}
-        (папка и id не меняются)
-      </p>
+      <PageHeader
+        title={meta.data.title || 'Книга'}
+        hint={
+          <>
+            <Mono>books/{folder}</Mono> · id <Mono>{meta.data.id}</Mono> — папка и id не меняются
+          </>
+        }
+      />
 
       <Card>
         <div className="space-y-4">
@@ -253,7 +259,7 @@ export function EditBook() {
               <img
                 src={mediaUrl(meta.data.cover)}
                 alt="текущая обложка"
-                className="h-20 w-14 shrink-0 rounded-lg border border-line object-cover"
+                className="h-20 w-14 shrink-0 rounded-control border border-line object-cover"
               />
             )}
             <div className="grow">
@@ -272,7 +278,7 @@ export function EditBook() {
         <p className="mb-4 text-sm font-medium">Авторы</p>
         <div className="space-y-4">
           {authors.map((author, i) => (
-            <div key={i} className="rounded-xl border border-line p-4">
+            <div key={i} className="rounded-card border border-line p-4">
               <div className="mb-3 flex items-end gap-3">
                 <div className="grow">
                   <Field label={`Автор ${i + 1}`}>

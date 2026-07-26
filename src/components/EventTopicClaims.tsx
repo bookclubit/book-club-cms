@@ -45,15 +45,15 @@ export function EventTopicClaims({
 }: EventTopicClaimsProps) {
   if (!chapterSelected) {
     return (
-      <p className="text-sm text-muted">
+      <p className="text-sm text-ink-soft">
         Выберите книгу и главу — темы главы появятся здесь как слоты докладов.
       </p>
     )
   }
-  if (loading) return <p className="text-sm text-muted">Загружаем темы главы…</p>
+  if (loading) return <p className="text-sm text-ink-soft">Загружаем темы главы…</p>
   if (topics.length === 0) {
     return (
-      <p className="text-sm text-muted">
+      <p className="text-sm text-ink-soft">
         В этой главе ещё нет тем. Добавьте их в разделе «Темы» — и они появятся здесь.
       </p>
     )
@@ -66,15 +66,15 @@ export function EventTopicClaims({
         const busy = busyTopic === topic.id
         const accepted = Boolean(claim?.slides_url && acceptedSlides.has(claim.slides_url))
         return (
-          <div key={topic.id} className="space-y-3 rounded-xl border border-line p-4">
+          <div key={topic.id} className="space-y-3 rounded-card border border-line p-4">
             <div className="flex items-start justify-between gap-3">
               <p className="text-sm font-medium">{topic.title}</p>
               {claim && (
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                     claim.status === 'confirmed'
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-amber-50 text-amber-700'
+                      ? 'bg-success-soft text-success'
+                      : 'bg-warn-soft text-warn'
                   }`}
                 >
                   {claim.status === 'confirmed' ? 'занята' : 'заявка'}
@@ -87,7 +87,7 @@ export function EventTopicClaims({
                 <p className="text-sm">
                   {claim.full_name ?? (claim.username ? `@${claim.username}` : 'участник клуба')}
                   {claim.speaker_id && (
-                    <span className="ml-2 text-xs text-muted">· из каталога</span>
+                    <span className="ml-2 text-xs text-ink-soft">· из каталога</span>
                   )}
                 </p>
                 {claim.slides_url && (
@@ -102,7 +102,7 @@ export function EventTopicClaims({
                     </a>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 font-medium ${
-                        accepted ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                        accepted ? 'bg-success-soft text-success' : 'bg-warn-soft text-warn'
                       }`}
                     >
                       {accepted ? 'принята' : 'на ревью'}
@@ -151,7 +151,7 @@ export function EventTopicClaims({
           </div>
         )
       })}
-      {message && <p className="text-sm text-muted">{message}</p>}
+      {message && <p className="text-sm text-ink-soft">{message}</p>}
     </div>
   )
 }

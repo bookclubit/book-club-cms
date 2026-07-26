@@ -41,10 +41,16 @@ export interface BookMeta {
   url?: string
 }
 
-export interface TopicRef {
+// Тема главы живёт объектом внутри chapter.json: у темы нет ни отдельного
+// файла, ни текста — только название, спикеры и ссылки на материалы.
+export interface Topic {
   id: string
   title: string
-  file: string
+  speakers: string[]
+  video_youtube: string
+  video_vk: string
+  presentation: string
+  resources: string[]
 }
 
 export interface Chapter {
@@ -52,7 +58,7 @@ export interface Chapter {
   title: string
   description: string
   learning_outcome: string
-  topics: TopicRef[]
+  topics: Topic[]
 }
 
 export type FlashcardDifficulty = 'easy' | 'medium' | 'hard'
@@ -166,13 +172,22 @@ export type ClubEvent = ClosedChapterEvent | LiveTalkEvent
 // Файл ГЕНЕРИРУЕМЫЙ: GitHub Action в book-club-data пересобирает его после
 // каждого мержа из содержимого репозитория (meta.json, chapter.json,
 // events/*, speakers.json, settings.json). PR-ы CMS его не трогают.
+// Глава в реестре: попадают все главы с chapter.json, `topics` — число тем
+// (по нему видно, разобрана глава или это ещё заготовка).
+export interface IndexChapter {
+  slug: string
+  order: number
+  title: string
+  topics: number
+}
+
 export interface IndexBook {
   folder: string
   id: string
   title: string
   status: BookStatus
   category?: BookCategory
-  chapters: string[]
+  chapters: IndexChapter[]
 }
 
 export type SpeakerSocial = 'telegram' | 'github' | 'linkedin' | 'website'
@@ -194,7 +209,7 @@ export interface IndexSpeaker {
 }
 
 export interface ContentIndex {
-  version: 1
+  version: number
   active_book: string
   books: IndexBook[]
   events: string[]

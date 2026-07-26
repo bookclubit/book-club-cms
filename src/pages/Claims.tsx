@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, ErrorBox, SectionTitle } from '../components/ui'
+import { Button, ErrorBox, Loading, PageHeader } from '../components/ui'
 import { getToken } from '../lib/auth'
 import {
   decideClaim,
@@ -190,7 +190,7 @@ export function Claims() {
       : undefined
     const avatarSrc = photos[claim.id] ?? catalogAvatar
     return (
-      <div key={claim.id} className="rounded-2xl border border-line bg-white p-5">
+      <div key={claim.id} className="rounded-card border border-line bg-surface p-5">
         <div className="flex items-start gap-4">
           {avatarSrc ? (
             <img
@@ -199,13 +199,13 @@ export function Claims() {
               className="h-14 w-14 shrink-0 rounded-full border border-line object-cover"
             />
           ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-line bg-gray-50 text-xs text-muted">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-xs text-ink-soft">
               нет фото
             </div>
           )}
           <div className="min-w-0 grow">
             <p className="font-medium">{claim.topic_title}</p>
-            <p className="mt-0.5 text-xs text-muted">
+            <p className="mt-0.5 text-xs text-ink-soft">
               {claim.topic_id ? (
                 <>
                   тема плана <code>{claim.topic_id}</code>
@@ -222,17 +222,17 @@ export function Claims() {
                   href={`https://t.me/${claim.username}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="ml-2 text-muted underline decoration-line underline-offset-2"
+                  className="ml-2 text-ink-soft underline decoration-line underline-offset-2"
                 >
                   @{claim.username}
                 </a>
               )}
               {claim.speaker_id ? (
-                <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                <span className="ml-2 rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
                   узнан по Telegram
                 </span>
               ) : (
-                <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                <span className="ml-2 rounded-full bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">
                   личность не проверена
                 </span>
               )}
@@ -241,8 +241,8 @@ export function Claims() {
           <span
             className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
               claim.status === 'confirmed'
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-amber-50 text-amber-700'
+                ? 'bg-success-soft text-success'
+                : 'bg-warn-soft text-warn'
             }`}
           >
             {claim.status === 'confirmed' ? 'подтверждена' : 'на модерации'}
@@ -277,7 +277,7 @@ export function Claims() {
           {claim.status === 'confirmed' && !claim.speaker_id && (
             <Link
               to={`/speakers/new?claim=${claim.id}`}
-              className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/85"
+              className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover"
             >
               Оформить спикером
             </Link>
@@ -296,10 +296,13 @@ export function Claims() {
 
   return (
     <div className="space-y-6">
-      <SectionTitle>Заявки спикеров</SectionTitle>
+      <PageHeader
+        title="Заявки спикеров"
+        hint="Заявки приходят из бота (/speaker). Подтверждение занимает тему главы."
+      />
 
       {error && <ErrorBox>{error}</ErrorBox>}
-      {claims === null && !error && <p className="text-sm text-muted">Загружаем заявки…</p>}
+      {claims === null && !error && <Loading label="Загружаем заявки…" />}
 
       {claims && claims.length > 0 && (
         <div className="flex gap-2">
@@ -313,24 +316,24 @@ export function Claims() {
       )}
 
       {claims?.length === 0 && (
-        <p className="text-sm text-muted">Заявок нет. Участники подают их боту командой /speaker.</p>
+        <p className="text-sm text-ink-soft">Заявок нет. Участники подают их боту командой /speaker.</p>
       )}
       {claims && claims.length > 0 && visible.length === 0 && (
-        <p className="text-sm text-muted">
+        <p className="text-sm text-ink-soft">
           {tab === 'active' ? 'Активных заявок нет.' : 'Архив пуст.'}
         </p>
       )}
 
       {orderedGroups.map(([label, groupClaims]) => (
         <section key={label} className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">
             {label} · {groupClaims.length}
           </h2>
           {groupClaims.map(renderClaim)}
         </section>
       ))}
 
-      {genMsg && <p className="text-sm text-muted">{genMsg}</p>}
+      {genMsg && <p className="text-sm text-ink-soft">{genMsg}</p>}
     </div>
   )
 }
@@ -351,8 +354,8 @@ function TabButton({
       aria-pressed={active}
       className={
         active
-          ? 'rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white'
-          : 'rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted hover:text-ink'
+          ? 'rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent'
+          : 'rounded-control border border-line px-4 py-2 text-sm font-medium text-ink-soft hover:text-ink'
       }
     >
       {children}

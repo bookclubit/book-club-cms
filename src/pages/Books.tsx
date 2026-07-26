@@ -1,6 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ErrorBox, SectionTitle } from '../components/ui'
+import {
+  Badge,
+  EmptyState,
+  ErrorBox,
+  Loading,
+  Mono,
+  PageHeader,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui'
 import { useDataClient, useIndex } from '../lib/hooks'
 import { BOOK_CATEGORIES, type BookCategory } from '../types'
 
@@ -12,8 +23,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const CATEGORY_LABEL = Object.fromEntries(BOOK_CATEGORIES.map((c) => [c.id, c.label]))
 
-// Список добавленных книг с фильтром по категориям. Клуб читает несколько
-// книг параллельно, поэтому вкладки помогают не терять их в общем списке.
+// Список книг с фильтром по категориям: клуб читает несколько книг параллельно.
 export function Books() {
   const gh = useDataClient()
   const { data: index, error, loading } = useIndex(gh)
@@ -25,24 +35,27 @@ export function Books() {
   const countBy = (cat: BookCategory) => books.filter((b) => b.category === cat).length
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <SectionTitle>Книги</SectionTitle>
-        <Link
-          to="/books/new"
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/85"
-        >
-          + Добавить книгу
-        </Link>
-      </div>
+    <div>
+      <PageHeader
+        title="Книги"
+        hint="Название, обложка и авторы книги — meta.json в book-club-data."
+        action={
+          <Link
+            to="/books/new"
+            className="inline-flex items-center whitespace-nowrap rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
+          >
+            Новая книга
+          </Link>
+        }
+      />
 
-      {loading && <p className="text-sm text-muted">Загружаем реестр…</p>}
+      {loading && <Loading label="Загружаем реестр…" />}
       {error && <ErrorBox>{error}</ErrorBox>}
 
-      {index && (
-        <div className="flex flex-wrap gap-1.5">
+      {index && books.length > 0 && (
+        <div className="mb-5 flex flex-wrap gap-1.5">
           <FilterTab active={filter === 'all'} onClick={() => setFilter('all')}>
-            Все книги ({books.length})
+            Все ({books.length})
           </FilterTab>
           {BOOK_CATEGORIES.map((c) => (
             <FilterTab key={c.id} active={filter === c.id} onClick={() => setFilter(c.id)}>
@@ -53,38 +66,58 @@ export function Books() {
       )}
 
       {index && books.length === 0 && (
-        <p className="text-sm text-muted">Книг пока нет — добавьте первую.</p>
+        <EmptyState title="Книг пока нет" hint="Добавьте первую — с обложкой и авторами." />
       )}
       {index && books.length > 0 && visible.length === 0 && (
-        <p className="text-sm text-muted">
-          В этой категории книг нет. Категория задаётся в форме редактирования книги.
-        </p>
+        <EmptyState
+          title="В этой категории книг нет"
+          hint="Категория задаётся в форме редактирования книги."
+        />
       )}
 
-      <ul className="space-y-2">
-        {visible.map((b) => (
-          <li key={b.folder}>
-            <Link
-              to={`/books/${b.folder}/edit`}
-              className="flex items-center justify-between gap-4 rounded-xl border border-line bg-white px-4 py-3 transition hover:border-ink/30"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-medium">{b.title}</p>
-                <p className="text-xs text-muted">
-                  <code>{b.folder}</code> · глав: {b.chapters.length}
-                  {b.category ? ` · ${CATEGORY_LABEL[b.category]}` : ' · без категории'}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted">
-                  {STATUS_LABEL[b.status] ?? b.status}
-                </span>
-                <span className="text-sm text-accent">Редактировать</span>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {visible.length > 0 && (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Книга</Th>
+              <Th className="w-28">Главы</Th>
+              <Th className="w-32">Статус</Th>
+              <Th className="w-28" />
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((b) => (
+              <Tr key={b.folder}>
+                <Td>
+                  <span className="block font-medium">{b.title}</span>
+                  <Mono>{b.folder}</Mono>
+                  {b.category ? (
+                    <span className="ml-2 text-xs text-ink-faint">
+                      {CATEGORY_LABEL[b.category]}
+                    </span>
+                  ) : (
+                    <span className="ml-2 text-xs text-ink-faint">без категории</span>
+                  )}
+                </Td>
+                <Td className="nums text-ink-soft">{b.chapters.length}</Td>
+                <Td>
+                  <Badge tone={b.status === 'reading' ? 'accent' : 'neutral'}>
+                    {STATUS_LABEL[b.status] ?? b.status}
+                  </Badge>
+                </Td>
+                <Td>
+                  <Link
+                    to={`/books/${b.folder}/edit`}
+                    className="whitespace-nowrap text-sm font-medium text-accent underline decoration-accent/30 underline-offset-2 transition-colors duration-120 ease-out hover:decoration-accent"
+                  >
+                    Открыть
+                  </Link>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
     </div>
   )
 }
@@ -102,10 +135,11 @@ function FilterTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+      aria-pressed={active}
+      className={`whitespace-nowrap rounded-control border px-2.5 py-1 text-sm transition-colors duration-120 ease-out ${
         active
-          ? 'bg-ink text-white'
-          : 'border border-line bg-white text-muted hover:text-ink'
+          ? 'border-accent bg-accent text-on-accent'
+          : 'border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink active:translate-y-px'
       }`}
     >
       {children}

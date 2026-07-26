@@ -7,7 +7,7 @@ import {
   type EventKind,
 } from '../components/EventForm'
 import { PublishPanel } from '../components/PublishPanel'
-import { Field, Select } from '../components/ui'
+import { Field, PageHeader, Select } from '../components/ui'
 import { useChapterTopics, useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
@@ -66,6 +66,11 @@ export function AddEvent() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Новая встреча"
+        hint="Обсуждение главы или эфир докладов; темы берутся из главы."
+      />
+
       <EventFormFields
         kind={kind}
         form={form}

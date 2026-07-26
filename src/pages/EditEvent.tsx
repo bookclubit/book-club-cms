@@ -8,7 +8,7 @@ import {
 } from '../components/EventForm'
 import { EventTopicClaims } from '../components/EventTopicClaims'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, ErrorBox, Field, TextInput } from '../components/ui'
+import { Card, ErrorBox, Field, Mono, PageHeader, TextInput } from '../components/ui'
 import { getToken } from '../lib/auth'
 import {
   assignClaim,
@@ -291,7 +291,7 @@ export function EditEvent() {
     }
   }
 
-  if (event.loading) return <p className="text-sm text-muted">Загружаем встречу…</p>
+  if (event.loading) return <p className="text-sm text-ink-soft">Загружаем встречу…</p>
   if (event.error) return <ErrorBox>{event.error}</ErrorBox>
   if (!event.data) {
     return (
@@ -307,7 +307,7 @@ export function EditEvent() {
     <>
       <Card>
         <p className="mb-1 text-sm font-medium">Темы главы</p>
-        <p className="mb-4 text-xs text-muted">
+        <p className="mb-4 text-xs text-ink-soft">
           Занятость тем — единый источник в боте (D1): «Освободить» удаляет заявку,
           назначение создаёт её. Изменения применяются сразу, без сохранения встречи.
           «Создать презентацию» доступна для каталожного спикера; «Принять
@@ -315,7 +315,7 @@ export function EditEvent() {
           анонсе встречи.
         </p>
         {!getBotToken() ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm text-ink-soft">
             Для управления темами нужен админ-токен бота (задайте на странице входа).
           </p>
         ) : (
@@ -339,21 +339,21 @@ export function EditEvent() {
       </Card>
       <Card>
         <p className="mb-1 text-sm font-medium">Монтажные ролики докладов</p>
-        <p className="mb-4 text-xs text-muted">
+        <p className="mb-4 text-xs text-ink-soft">
           Ссылки на чистовые записи докладов — показываются на странице спикера
           вместо записи всей встречи. Заполняйте после монтажа. Сохраняются с
           правками встречи (кнопка ниже).
         </p>
         {!(book && form.chapterSlug) ? (
-          <p className="text-sm text-muted">Выберите книгу и главу.</p>
+          <p className="text-sm text-ink-soft">Выберите книгу и главу.</p>
         ) : topicsLoading ? (
-          <p className="text-sm text-muted">Загружаем темы главы…</p>
+          <p className="text-sm text-ink-soft">Загружаем темы главы…</p>
         ) : meetingTopics.length === 0 ? (
-          <p className="text-sm text-muted">В этой главе ещё нет тем.</p>
+          <p className="text-sm text-ink-soft">В этой главе ещё нет тем.</p>
         ) : (
           <div className="space-y-4">
             {meetingTopics.map((topic) => (
-              <div key={topic.id} className="space-y-3 rounded-xl border border-line p-4">
+              <div key={topic.id} className="space-y-3 rounded-card border border-line p-4">
                 <p className="text-sm font-medium">{topic.title}</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Монтаж YouTube">
@@ -381,11 +381,17 @@ export function EditEvent() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">
-        Редактирование <code>events/{dir}/{file}</code> · тип:{' '}
-        {kind === 'closed-chapter' ? 'открытое обсуждение' : 'доклады'}. Смена даты
-        или названия перенесёт файл автоматически.
-      </p>
+      <PageHeader
+        title={kind === 'closed-chapter' ? 'Открытое обсуждение' : 'Эфир докладов'}
+        hint={
+          <>
+            <Mono>
+              events/{dir}/{file}
+            </Mono>{' '}
+            — смена даты или названия перенесёт файл автоматически
+          </>
+        }
+      />
 
       <Card>
         <label className="flex items-start gap-3">
@@ -397,7 +403,7 @@ export function EditEvent() {
           />
           <span>
             <span className="block text-sm font-medium">Встреча завершена</span>
-            <span className="block text-xs text-muted">
+            <span className="block text-xs text-ink-soft">
               Уводит встречу в архив приложения. Добавьте записи (YouTube/VK)
               {kind === 'closed-chapter' ? ' и доску' : ''} ниже.
             </span>

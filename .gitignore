@@ -3,3 +3,8 @@ dist
 .vercel
 *.local
 .DS_Store
+
+# Скилл дизайна hallmark: вендорится локально (~900KB) и ставится по
+# skills-lock.json командой `npx skills install`. В git — только lock-файл.
+.agents/
+.claude/skills/

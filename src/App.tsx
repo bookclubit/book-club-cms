@@ -6,7 +6,6 @@ import { AddChapter } from './pages/AddChapter'
 import { AddEvent } from './pages/AddEvent'
 import { AddFlashcards } from './pages/AddFlashcards'
 import { AddSpeaker } from './pages/AddSpeaker'
-import { AddTopic } from './pages/AddTopic'
 import { Books } from './pages/Books'
 import { Chapters } from './pages/Chapters'
 import { Claims } from './pages/Claims'
@@ -15,13 +14,11 @@ import { EditBook } from './pages/EditBook'
 import { EditChapter } from './pages/EditChapter'
 import { EditEvent } from './pages/EditEvent'
 import { EditSpeaker } from './pages/EditSpeaker'
-import { EditTopic } from './pages/EditTopic'
 import { Events } from './pages/Events'
 import { Flashcards } from './pages/Flashcards'
 import { Login } from './pages/Login'
 import { Settings } from './pages/Settings'
 import { Speakers } from './pages/Speakers'
-import { Topics } from './pages/Topics'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation()
@@ -52,9 +49,9 @@ export default function App() {
         <Route path="/chapters/new" element={<AddChapter />} />
         <Route path="/chapters/:folder/:slug/edit" element={<EditChapter />} />
 
-        <Route path="/topics" element={<Topics />} />
-        <Route path="/topics/new" element={<AddTopic />} />
-        <Route path="/topics/:folder/:slug/:file/edit" element={<EditTopic />} />
+        {/* Раздела «Темы» больше нет: тема живёт внутри главы. Старые ссылки
+            и закладки ведём на список глав, чтобы не ловить пустой экран. */}
+        <Route path="/topics/*" element={<Navigate to="/chapters" replace />} />
 
         <Route path="/events" element={<Events />} />
         <Route path="/events/new" element={<AddEvent />} />

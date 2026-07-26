@@ -39,9 +39,11 @@ export function Login() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
-      <h1 className="mb-1 text-xl font-semibold tracking-tight">CMS Книжного клуба</h1>
-      <p className="mb-6 text-sm text-muted">
-        Админка книжного клуба. Контент публикуется pull request-ами в{' '}
+      <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+        CMS Книжного клуба
+      </h1>
+      <p className="mb-6 mt-1.5 text-sm text-ink-soft">
+        Контент публикуется pull request-ами в{' '}
         <span className="font-medium text-ink">bookclubit/book-club-data</span>.
       </p>
 
@@ -73,13 +75,18 @@ export function Login() {
             />
           </Field>
           {error && <ErrorBox>{error}</ErrorBox>}
-          <Button onClick={() => void submit()} disabled={checking || !value.trim()}>
+          <Button
+            onClick={() => void submit()}
+            disabled={!value.trim()}
+            loading={checking}
+            className="w-full"
+          >
             {checking ? 'Проверяем…' : 'Войти'}
           </Button>
         </div>
       </Card>
 
-      <div className="mt-6 rounded-xl border border-line bg-white p-5 text-sm text-muted">
+      <div className="mt-6 rounded-card border border-line bg-surface p-5 text-sm text-ink-soft">
         <p className="mb-2 font-medium text-ink">Как получить токен</p>
         <ol className="list-decimal space-y-1 pl-5">
           <li>

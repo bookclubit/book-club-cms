@@ -7,7 +7,7 @@ import {
   EMPTY_SOCIALS,
   SpeakerSocialsFields,
 } from '../components/SpeakerSocialsFields'
-import { Card, Field, TextArea, TextInput } from '../components/ui'
+import { Card, Field, PageHeader, TextArea, TextInput } from '../components/ui'
 import { fetchClaimPhoto, listSpeakerClaims } from '../lib/botApi'
 import { AVATAR_OPTS, fileToWebP } from '../lib/image'
 import { useDataClient, useLoad, usePublish } from '../lib/hooks'
@@ -115,6 +115,11 @@ export function AddSpeaker() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Новый спикер"
+        hint="Аватарка конвертируется в WebP автоматически."
+      />
+
       <Card>
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -133,9 +138,9 @@ export function AddSpeaker() {
               />
             </Field>
           </div>
-          {prefillNote && <p className="text-xs text-muted">{prefillNote}</p>}
+          {prefillNote && <p className="text-xs text-ink-soft">{prefillNote}</p>}
           {speakerId && (
-            <p className="text-xs text-muted">
+            <p className="text-xs text-ink-soft">
               id: <code>{speakerId}</code>
               {taken && ' — такой спикер уже есть'}
             </p>

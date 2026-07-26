@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ErrorBox, SectionTitle } from '../components/ui'
+import {
+  Badge,
+  EmptyState,
+  ErrorBox,
+  Loading,
+  PageHeader,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui'
 import { useDataClient, useIndex, useLoad } from '../lib/hooks'
 import type { ClubEvent } from '../types'
 
@@ -50,18 +60,21 @@ export function Events() {
   const visible = tab === 'active' ? active : archive
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <SectionTitle>Встречи</SectionTitle>
-        <Link
-          to="/events/new"
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/85"
-        >
-          + Добавить встречу
-        </Link>
-      </div>
+    <div>
+      <PageHeader
+        title="Встречи"
+        hint="Обсуждения глав и эфиры докладов. Запись участников — через бота."
+        action={
+          <Link
+            to="/events/new"
+            className="inline-flex items-center whitespace-nowrap rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
+          >
+            Новая встреча
+          </Link>
+        }
+      />
 
-      <div className="flex gap-2">
+      <div className="mb-5 flex flex-wrap gap-1.5">
         <TabButton active={tab === 'active'} onClick={() => setTab('active')}>
           Активные ({active.length})
         </TabButton>
@@ -70,38 +83,53 @@ export function Events() {
         </TabButton>
       </div>
 
-      {rows.loading && <p className="text-sm text-muted">Загружаем встречи…</p>}
+      {rows.loading && <Loading label="Загружаем встречи…" />}
       {rows.error && <ErrorBox>{rows.error}</ErrorBox>}
       {!rows.loading && visible.length === 0 && (
-        <p className="text-sm text-muted">
-          {tab === 'active' ? 'Активных встреч нет — добавьте первую.' : 'Архив пуст.'}
-        </p>
+        <EmptyState
+          title={tab === 'active' ? 'Активных встреч нет' : 'Архив пуст'}
+          hint={tab === 'active' ? 'Заведите ближайшую встречу.' : undefined}
+        />
       )}
 
-      <ul className="space-y-2">
-        {visible.map((r) => (
-          <li key={r.path}>
-            <Link
-              to={`/events/${r.dir}/${encodeURIComponent(r.file)}/edit`}
-              className="flex items-center justify-between gap-4 rounded-xl border border-line bg-white px-4 py-3 transition hover:border-ink/30"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {r.date}
-                  {r.event?.stream ? ` · Книжный клуб ${r.event.stream}` : ''}
-                </p>
-                <p className="truncate text-xs text-muted">{r.event?.title ?? r.slug}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted">
-                  {r.dir === 'closed-chapters' ? 'обсуждение' : 'доклады'}
-                </span>
-                <span className="text-sm text-accent">Редактировать</span>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {visible.length > 0 && (
+        <Table>
+          <thead>
+            <tr>
+              <Th className="w-28">Дата</Th>
+              <Th>Встреча</Th>
+              <Th className="w-32">Тип</Th>
+              <Th className="w-28" />
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((r) => (
+              <Tr key={r.path}>
+                <Td className="nums text-ink-soft">{r.date}</Td>
+                <Td>
+                  <span className="block font-medium">{r.event?.title ?? r.slug}</span>
+                  {r.event?.stream ? (
+                    <span className="text-xs text-ink-faint">Книжный клуб {r.event.stream}</span>
+                  ) : null}
+                </Td>
+                <Td>
+                  <Badge tone={r.dir === 'closed-chapters' ? 'neutral' : 'accent'}>
+                    {r.dir === 'closed-chapters' ? 'обсуждение' : 'доклады'}
+                  </Badge>
+                </Td>
+                <Td>
+                  <Link
+                    to={`/events/${r.dir}/${encodeURIComponent(r.file)}/edit`}
+                    className="whitespace-nowrap text-sm font-medium text-accent underline decoration-accent/30 underline-offset-2 transition-colors duration-120 ease-out hover:decoration-accent"
+                  >
+                    Открыть
+                  </Link>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
     </div>
   )
 }
@@ -120,11 +148,11 @@ function TabButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={
+      className={`whitespace-nowrap rounded-control border px-2.5 py-1 text-sm transition-colors duration-120 ease-out ${
         active
-          ? 'rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white'
-          : 'rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted hover:text-ink'
-      }
+          ? 'border-accent bg-accent text-on-accent'
+          : 'border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink active:translate-y-px'
+      }`}
     >
       {children}
     </button>

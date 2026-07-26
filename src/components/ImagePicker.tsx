@@ -49,22 +49,22 @@ export function ImagePicker({
           type="file"
           accept="image/*"
           onChange={(e) => void handleFile(e.target.files?.[0])}
-          className="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border file:border-line file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:border-ink/30"
+          className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-control file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:border-accent/30"
         />
         {preview && (
           <div className="flex shrink-0 items-center gap-2">
             <img
               src={preview}
               alt="превью"
-              className="h-14 w-14 rounded-lg border border-line object-cover"
+              className="h-14 w-14 rounded-control border border-line object-cover"
             />
             {size !== null && (
-              <span className="text-xs text-muted">{Math.round(size / 1024)}KB · WebP</span>
+              <span className="text-xs text-ink-soft">{Math.round(size / 1024)}KB · WebP</span>
             )}
           </div>
         )}
       </div>
-      {error && <span className="mt-1 block text-xs text-red-600">{error}</span>}
+      {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
     </Field>
   )
 }

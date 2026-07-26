@@ -15,7 +15,7 @@ import type {
   EventRecordings,
   IndexBook,
   LiveTalkEvent,
-  TopicRef,
+  Topic,
 } from '../types'
 import { EventTopicsPicker } from './EventTopicsPicker'
 import { ImagePicker } from './ImagePicker'
@@ -189,7 +189,7 @@ interface EventFormFieldsProps {
   kind: EventKind
   form: EventFormState
   index: ContentIndex | null
-  topics: TopicRef[] | null
+  topics: Topic[] | null
   topicsLoading: boolean
   /** Слот в начале первой карточки — AddEvent показывает здесь селектор типа. */
   kindSelector?: ReactNode
@@ -315,11 +315,11 @@ export function EventFormFields({
                   disabled={!book}
                 >
                   <option value="">— выберите —</option>
-                  {book?.chapters.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
+                  {book?.chapters.map((ch) => (
+                      <option key={ch.slug} value={ch.slug}>
+                        {ch.order}. {ch.title}
+                      </option>
+                    ))}
                 </Select>
               </Field>
             </div>
@@ -371,7 +371,7 @@ export function EventFormFields({
           <Card>
             <div className="space-y-4">
               <p className="text-sm font-medium">Программа докладов</p>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-ink-soft">
                 Регистрация на встречу и заявки спикеров идут через бота — отдельная
                 ссылка не нужна.
               </p>
@@ -405,9 +405,9 @@ export function EventFormFields({
                     disabled={!book}
                   >
                     <option value="">— выберите —</option>
-                    {book?.chapters.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
+                    {book?.chapters.map((ch) => (
+                      <option key={ch.slug} value={ch.slug}>
+                        {ch.order}. {ch.title}
                       </option>
                     ))}
                   </Select>
@@ -417,7 +417,7 @@ export function EventFormFields({
           </Card>
           <Card>
             <p className="mb-1 text-sm font-medium">Темы этой встречи</p>
-            <p className="mb-4 text-xs text-muted">
+            <p className="mb-4 text-xs text-ink-soft">
               Отметьте темы, если главу делят на несколько эфиров — встреча покажет
               только их. Оставьте пустым, если разбираете всю главу. Спикеров на темы
               назначают через бота или на странице редактирования встречи.

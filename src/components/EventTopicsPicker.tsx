@@ -21,15 +21,15 @@ export function EventTopicsPicker({
 }: EventTopicsPickerProps) {
   if (!chapterSelected) {
     return (
-      <p className="text-sm text-muted">
+      <p className="text-sm text-ink-soft">
         Выберите книгу и главу — темы главы появятся здесь.
       </p>
     )
   }
-  if (loading) return <p className="text-sm text-muted">Загружаем темы главы…</p>
+  if (loading) return <p className="text-sm text-ink-soft">Загружаем темы главы…</p>
   if (topics.length === 0) {
     return (
-      <p className="text-sm text-muted">
+      <p className="text-sm text-ink-soft">
         В этой главе ещё нет тем. Добавьте их в разделе «Темы».
       </p>
     )
@@ -44,7 +44,7 @@ export function EventTopicsPicker({
       {topics.map((topic) => (
         <label
           key={topic.id}
-          className="flex items-start gap-3 rounded-lg border border-line p-3"
+          className="flex items-start gap-3 rounded-control border border-line p-3"
         >
           <input
             type="checkbox"
@@ -55,7 +55,7 @@ export function EventTopicsPicker({
           <span className="text-sm">{topic.title}</span>
         </label>
       ))}
-      <p className="text-xs text-muted">
+      <p className="text-xs text-ink-soft">
         {selected.length === 0
           ? 'Ничего не отмечено — на встрече вся глава.'
           : `На встрече ${selected.length} из ${topics.length} тем главы.`}

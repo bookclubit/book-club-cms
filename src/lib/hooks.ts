@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ContentIndex, TopicRef } from '../types'
+import type { ContentIndex, Topic } from '../types'
 import { getToken } from './auth'
 import { GitHubClient } from './github'
 import type { OpenPRResult } from './pr'
@@ -86,8 +86,8 @@ export function useChapterTopics(
   folder: string,
   chapterSlug: string,
   enabled: boolean,
-): { topics: TopicRef[] | null; loading: boolean } {
-  const [topics, setTopics] = useState<TopicRef[] | null>(null)
+): { topics: Topic[] | null; loading: boolean } {
+  const [topics, setTopics] = useState<Topic[] | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {

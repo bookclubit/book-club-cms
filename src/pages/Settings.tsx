@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, ErrorBox, Field, SectionTitle, TextInput } from '../components/ui'
+import { Card, CardTitle, ErrorBox, Field, Loading, PageHeader, TextInput } from '../components/ui'
 import { useDataClient, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { loadSettings } from '../lib/repo'
@@ -60,18 +60,18 @@ export function Settings() {
     })
   }
 
-  if (loading) return <p className="text-sm text-muted">Загружаем настройки…</p>
+  if (loading) return <Loading label="Загружаем настройки…" />
   if (error) return <ErrorBox>{error}</ErrorBox>
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-muted">
-        Ссылки на соцсети клуба. Показываются в шапке miniapp едиными иконками —
-        пустое поле скрывает платформу.
-      </p>
+    <div className="space-y-5">
+      <PageHeader
+        title="Настройки"
+        hint="Ссылки на соцсети клуба — показываются в шапке miniapp; пустое поле скрывает платформу."
+      />
 
       <Card>
-        <SectionTitle>Соцсети</SectionTitle>
+        <CardTitle>Соцсети</CardTitle>
         <div className="space-y-4">
           {SOCIAL_PLATFORMS.map((p) => (
             <Field key={p.id} label={p.label}>

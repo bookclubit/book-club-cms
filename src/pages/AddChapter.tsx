@@ -1,12 +1,23 @@
 import { useMemo, useState } from 'react'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, Field, Select, TextArea, TextInput } from '../components/ui'
+import { TopicsEditor } from '../components/TopicsEditor'
+import {
+  Card,
+  CardTitle,
+  Field,
+  PageHeader,
+  Select,
+  TextArea,
+  TextInput,
+} from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { toBulletList } from '../lib/repo'
 import { pad2, slugify } from '../lib/slug'
-import type { Chapter } from '../types'
+import type { Chapter, Topic } from '../types'
 
+// Глава создаётся одним файлом вместе с темами: chapter.json — единственный
+// файл главы, поэтому один PR закрывает всю работу.
 export function AddChapter() {
   const gh = useDataClient()
   const { data: index } = useIndex(gh)
@@ -16,15 +27,14 @@ export function AddChapter() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [outcome, setOutcome] = useState('')
+  const [topics, setTopics] = useState<Topic[]>([])
 
   const book = index?.books.find((b) => b.folder === folder)
 
-  // Существующие папки глав — из реального дерева репозитория: в генерируемый
-  // index.json попадают только главы с темами, поэтому для нумерации и проверки
-  // занятости slug-а его недостаточно.
+  // Существующие папки глав — из дерева репозитория: в реестре могут быть
+  // не все главы, если между мержами Action ещё не пересобрал index.json.
   const chapterDirs = useLoad(
-    async () =>
-      folder ? ((await gh.listDir(`books/${folder}/chapters`)) ?? []) : [],
+    async () => (folder ? ((await gh.listDir(`books/${folder}/chapters`)) ?? []) : []),
     [gh, folder],
   )
   const existingChapters = useMemo(
@@ -43,11 +53,12 @@ export function AddChapter() {
   const [orderOverride, setOrderOverride] = useState('')
   const order = Number(orderOverride) > 0 ? Number(orderOverride) : nextOrder
   const chapterSlug = `${pad2(order)}-${slugify(title)}`
+  const slugTaken = existingChapters.includes(chapterSlug)
 
+  const filledTopics = topics.filter((t) => t.title.trim())
   const ready = Boolean(
     book && title.trim() && description.trim() && outcome.trim() && !chapterDirs.loading,
   )
-  const slugTaken = existingChapters.includes(chapterSlug)
 
   function submit() {
     if (!book) return
@@ -57,15 +68,11 @@ export function AddChapter() {
         title: title.trim(),
         description: description.trim(),
         learning_outcome: toBulletList(outcome),
-        topics: [],
+        topics: filledTopics.map((t) => ({ ...t, title: t.title.trim() })),
       }
 
-      const files: FileChange[] = [
-        {
-          path: `books/${book.folder}/chapters/${chapterSlug}/chapter.json`,
-          content: toJSON(chapter),
-        },
-      ]
+      const path = `books/${book.folder}/chapters/${chapterSlug}/chapter.json`
+      const files: FileChange[] = [{ path, content: toJSON(chapter) }]
 
       return openContentPR(gh, {
         branch: `cms/chapter-${book.folder}-${pad2(order)}`,
@@ -73,11 +80,15 @@ export function AddChapter() {
         body: [
           `Глава **${order}. ${chapter.title}** книги **${book.title}**.`,
           '',
-          `- \`books/${book.folder}/chapters/${chapterSlug}/chapter.json\``,
+          `- \`${path}\``,
           '',
-          '`index.json` пересоберётся автоматически после мержа (глава появится в нём после добавления первой темы).',
+          filledTopics.length > 0
+            ? `Темы главы (${filledTopics.length}):\n${filledTopics
+                .map((t, i) => `${i + 1}. ${t.title.trim()}`)
+                .join('\n')}`
+            : 'Тем пока нет — их можно добавить правкой главы.',
           '',
-          'Темы добавляются отдельными PR через форму «Тема».',
+          '`index.json` пересоберётся автоматически после мержа.',
           '',
           '_Создано через CMS Книжного клуба._',
         ].join('\n'),
@@ -87,40 +98,55 @@ export function AddChapter() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <PageHeader
+        title="Новая глава"
+        hint="Глава и её темы — один файл chapter.json и один pull request."
+      />
+
       <Card>
+        <CardTitle>Глава</CardTitle>
         <div className="space-y-4">
-          <Field label="Книга">
-            <Select value={folder} onChange={(e) => setFolder(e.target.value)}>
-              <option value="">— выберите книгу —</option>
-              {index?.books.map((b) => (
-                <option key={b.folder} value={b.folder}>
-                  {b.title} ({b.folder})
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
+          <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
+            <Field label="Книга">
+              <Select value={folder} onChange={(e) => setFolder(e.target.value)}>
+                <option value="">— выберите книгу —</option>
+                {index?.books.map((b) => (
+                  <option key={b.folder} value={b.folder}>
+                    {b.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Номер" hint={`следующий: ${nextOrder}`}>
               <TextInput
                 type="number"
                 min={1}
+                className="nums"
                 value={orderOverride}
                 onChange={(e) => setOrderOverride(e.target.value)}
                 placeholder={String(nextOrder)}
               />
             </Field>
-            <Field
-              label="Название главы"
-              hint={title ? `папка: ${chapterSlug}${slugTaken ? ' — уже есть' : ''}` : undefined}
-            >
-              <TextInput
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Введение в Docker"
-              />
-            </Field>
           </div>
+
+          {/* Подсказка занимает строку всегда — появляющаяся ошибка не двигает форму. */}
+          <Field
+            label="Название главы"
+            hint={
+              title
+                ? `books/${folder || '<книга>'}/chapters/${chapterSlug}/chapter.json`
+                : 'из названия соберётся папка главы'
+            }
+            error={slugTaken ? 'Глава с такой папкой уже есть' : undefined}
+          >
+            <TextInput
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Введение в Docker"
+            />
+          </Field>
+
           <Field label="Описание">
             <TextArea
               value={description}
@@ -138,13 +164,26 @@ export function AddChapter() {
         </div>
       </Card>
 
+      <Card>
+        <CardTitle hint="Название обязательно, остальное дозаполняется после встречи">
+          Темы главы
+        </CardTitle>
+        <TopicsEditor
+          topics={topics}
+          speakers={index?.speakers ?? []}
+          bookId={book?.id ?? 'book'}
+          chapterOrder={order}
+          onChange={setTopics}
+        />
+      </Card>
+
       <PublishPanel
         state={state}
         onSubmit={submit}
         onReset={reset}
         disabled={!ready || slugTaken}
         disabledReason={
-          slugTaken ? 'Глава с такой папкой уже есть' : 'Выберите книгу и заполните все поля'
+          slugTaken ? 'Смените номер или название' : 'Выберите книгу и заполните поля главы'
         }
       />
     </div>

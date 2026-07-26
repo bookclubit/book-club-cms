@@ -1,14 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, ErrorBox, Field, TextArea, TextInput } from '../components/ui'
+import { TopicsEditor } from '../components/TopicsEditor'
+import {
+  Card,
+  CardTitle,
+  ErrorBox,
+  Field,
+  Loading,
+  Mono,
+  PageHeader,
+  TextArea,
+  TextInput,
+} from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON } from '../lib/pr'
 import { loadChapter, toBulletList } from '../lib/repo'
-import type { Chapter } from '../types'
+import type { Chapter, Topic } from '../types'
 
-// Редактирование главы: chapter.json. Папка (NN-slug) не переименовывается —
-// на неё ссылаются index.json, события и маршруты miniapp.
+// Редактирование главы вместе с темами: всё лежит в одном chapter.json.
+// Папка (NN-slug) не переименовывается — на неё ссылаются реестр, события
+// и маршруты miniapp.
 export function EditChapter() {
   const { folder = '', slug = '' } = useParams()
   const gh = useDataClient()
@@ -21,6 +33,7 @@ export function EditChapter() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [outcome, setOutcome] = useState('')
+  const [topics, setTopics] = useState<Topic[]>([])
 
   useEffect(() => {
     const ch = chapter.data
@@ -28,6 +41,18 @@ export function EditChapter() {
     setTitle(ch.title)
     setDescription(ch.description)
     setOutcome(ch.learning_outcome)
+    // Файлы, написанные руками, могут не иметь новых полей — добираем пустыми.
+    setTopics(
+      ch.topics.map((t) => ({
+        id: t.id,
+        title: t.title,
+        speakers: t.speakers ?? [],
+        video_youtube: t.video_youtube ?? '',
+        video_vk: t.video_vk ?? '',
+        presentation: t.presentation ?? '',
+        resources: t.resources ?? [],
+      })),
+    )
   }, [chapter.data])
 
   const ready = Boolean(chapter.data && title.trim() && description.trim() && outcome.trim())
@@ -37,11 +62,21 @@ export function EditChapter() {
     if (!current) return
     publish(async () => {
       const next: Chapter = {
-        ...current,
+        order: current.order,
         title: title.trim(),
         description: description.trim(),
         learning_outcome: toBulletList(outcome),
+        topics: topics
+          .filter((t) => t.title.trim())
+          .map((t) => ({
+            ...t,
+            title: t.title.trim(),
+            resources: t.resources.map((r) => r.trim()).filter(Boolean),
+          })),
       }
+
+      const path = `books/${folder}/chapters/${slug}/chapter.json`
+      const removed = current.topics.filter((t) => !next.topics.some((n) => n.id === t.id))
 
       return openContentPR(gh, {
         branch: `cms/edit-chapter-${folder}-${slug.slice(0, 2)}`,
@@ -49,39 +84,48 @@ export function EditChapter() {
         body: [
           `Правки главы **${current.order}. ${next.title}**.`,
           '',
-          `- \`books/${folder}/chapters/${slug}/chapter.json\``,
+          `- \`${path}\``,
+          `- тем в главе: ${next.topics.length} (было ${current.topics.length})`,
+          removed.length > 0
+            ? `- удалены темы: ${removed.map((t) => `\`${t.id}\``).join(', ')} — проверьте ссылки на них в событиях`
+            : null,
           '',
           '_Обновлено через CMS Книжного клуба._',
-        ].join('\n'),
-        files: [
-          {
-            path: `books/${folder}/chapters/${slug}/chapter.json`,
-            content: toJSON(next),
-          },
-        ],
+        ]
+          .filter((line): line is string => line !== null)
+          .join('\n'),
+        files: [{ path, content: toJSON(next) }],
       })
     })
   }
 
-  if (chapter.loading) return <p className="text-sm text-muted">Загружаем chapter.json…</p>
+  if (chapter.loading) return <Loading label="Загружаем главу…" />
   if (chapter.error) return <ErrorBox>{chapter.error}</ErrorBox>
   if (!chapter.data) {
     return (
       <ErrorBox>
-        Глава <code>{slug}</code> не найдена.{' '}
-        <Link to="/chapters" className="underline">К списку</Link>
+        Глава <span className="font-mono text-xs">{slug}</span> не найдена.{' '}
+        <Link to="/chapters" className="underline">
+          К списку
+        </Link>
       </ErrorBox>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-muted">
-        Редактирование <code>books/{folder}/chapters/{slug}</code> · глава №{chapter.data.order},
-        тем: {chapter.data.topics.length} (папка и номер не меняются)
-      </p>
+    <div className="space-y-5">
+      <PageHeader
+        title={`Глава ${chapter.data.order}`}
+        hint={
+          <>
+            {book ? `${book.title} · ` : ''}
+            <Mono>books/{folder}/chapters/{slug}</Mono>
+          </>
+        }
+      />
 
       <Card>
+        <CardTitle>Глава</CardTitle>
         <div className="space-y-4">
           <Field label="Название главы">
             <TextInput value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -95,12 +139,25 @@ export function EditChapter() {
         </div>
       </Card>
 
+      <Card>
+        <CardTitle hint="Ссылки и спикеров проставляют после встречи — прямо здесь">
+          Темы главы
+        </CardTitle>
+        <TopicsEditor
+          topics={topics}
+          speakers={index?.speakers ?? []}
+          bookId={book?.id ?? folder}
+          chapterOrder={chapter.data.order}
+          onChange={setTopics}
+        />
+      </Card>
+
       <PublishPanel
         state={state}
         onSubmit={submit}
         onReset={reset}
         disabled={!ready}
-        disabledReason="Заполните все поля"
+        disabledReason="Заполните поля главы"
         submitLabel="Создать pull request с правками"
       />
     </div>

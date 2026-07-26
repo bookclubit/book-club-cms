@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PublishPanel } from '../components/PublishPanel'
-import { Button, Card, ErrorBox, Field, SectionTitle, Select, TextArea, TextInput } from '../components/ui'
+import {
+  Button,
+  Card,
+  ErrorBox,
+  Field,
+  Loading,
+  PageHeader,
+  Select,
+  TextArea,
+  TextInput,
+} from '../components/ui'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON } from '../lib/pr'
 import { loadFlashcards } from '../lib/repo'
@@ -80,17 +90,20 @@ export function Flashcards() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <SectionTitle>Карточки</SectionTitle>
-        <Link
-          to="/flashcards/new"
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink/85"
-        >
-          + Добавить карточки
-        </Link>
-      </div>
+      <PageHeader
+        title="Карточки"
+        hint="Колода книги для повторения по SM-2: бот рассылает их, miniapp показывает в «Повторении»."
+        action={
+          <Link
+            to="/flashcards/new"
+            className="inline-flex items-center whitespace-nowrap rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
+          >
+            Новые карточки
+          </Link>
+        }
+      />
 
-      {loading && <p className="text-sm text-muted">Загружаем реестр…</p>}
+      {loading && <Loading label="Загружаем реестр…" />}
       {error && <ErrorBox>{error}</ErrorBox>}
 
       <Card>
@@ -114,14 +127,14 @@ export function Flashcards() {
       </Card>
 
       {folder && original !== null && original.length === 0 && (
-        <p className="text-sm text-muted">У книги пока нет карточек.</p>
+        <p className="text-sm text-ink-soft">У книги пока нет карточек.</p>
       )}
 
       {cards.map((card) => {
         const open = expanded === card.id
         const front = card.type === 'qa' ? card.question : card.command
         return (
-          <div key={card.id} className="rounded-2xl border border-line bg-white">
+          <div key={card.id} className="rounded-card border border-line bg-surface">
             <button
               type="button"
               onClick={() => setExpanded(open ? null : card.id)}
@@ -129,7 +142,7 @@ export function Flashcards() {
             >
               <span className="min-w-0">
                 <span className="block truncate text-sm">{front}</span>
-                <span className="text-xs text-muted">
+                <span className="text-xs text-ink-soft">
                   <code>{card.id}</code> · глава {card.chapter} · {card.difficulty} ·{' '}
                   {card.type === 'qa' ? 'вопрос/ответ' : 'команда'}
                 </span>
@@ -214,7 +227,7 @@ export function Flashcards() {
       {original !== null && (
         <div className="space-y-3">
           {dirty && (
-            <p className="text-sm text-muted">
+            <p className="text-sm text-ink-soft">
               Изменено: {editedCount}, удалено: {removedCount}. Изменения попадут в один PR.
               Отменить всё можно, перевыбрав книгу.
             </p>

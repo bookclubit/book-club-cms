@@ -58,7 +58,7 @@ export async function loadFlashcards(
   return (await gh.getFileJson<Flashcard[]>(`books/${folder}/flashcards.json`)) ?? []
 }
 
-// Реестр контента — генерируемый index.json (глав без тем в нём нет).
+// Реестр контента — генерируемый index.json (в нём все главы, даже пустые).
 export async function loadIndex(gh: GitHubClient): Promise<ContentIndex> {
   const existing = await gh.getFileJson<ContentIndex>('index.json')
   if (!existing) {

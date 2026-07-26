@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PublishPanel } from '../components/PublishPanel'
-import { Button, Card, Field, Select, TextArea, TextInput } from '../components/ui'
+import {
+  Button,
+  Card,
+  Field,
+  PageHeader,
+  Select,
+  TextArea,
+  TextInput,
+} from '../components/ui'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON } from '../lib/pr'
 import { loadFlashcards } from '../lib/repo'
@@ -112,6 +120,11 @@ export function AddFlashcards() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Новые карточки"
+        hint="id присваиваются автоматически и продолжают колоду книги."
+      />
+
       <Card>
         <Field
           label="Книга"
@@ -138,7 +151,7 @@ export function AddFlashcards() {
             <p className="text-sm font-medium">
               Карточка {i + 1}
               {book && existing !== null && (
-                <span className="ml-2 text-muted">{`${prefix}-${pad3(nextNumber + i)}`}</span>
+                <span className="ml-2 text-ink-soft">{`${prefix}-${pad3(nextNumber + i)}`}</span>
               )}
             </p>
             {cards.length > 1 && (

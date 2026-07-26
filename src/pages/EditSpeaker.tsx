@@ -7,7 +7,7 @@ import {
   EMPTY_SOCIALS,
   SpeakerSocialsFields,
 } from '../components/SpeakerSocialsFields'
-import { Card, ErrorBox, Field, TextArea, TextInput } from '../components/ui'
+import { Card, ErrorBox, Field, Mono, PageHeader, TextArea, TextInput } from '../components/ui'
 import { AVATAR_OPTS } from '../lib/image'
 import { useDataClient, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
@@ -83,7 +83,7 @@ export function EditSpeaker() {
     })
   }
 
-  if (loading) return <p className="text-sm text-muted">Загружаем спикеров…</p>
+  if (loading) return <p className="text-sm text-ink-soft">Загружаем спикеров…</p>
   if (error) return <ErrorBox>{error}</ErrorBox>
   if (!speaker) {
     return (
@@ -96,9 +96,14 @@ export function EditSpeaker() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">
-        Редактирование спикера <code>{id}</code> (id не меняется).
-      </p>
+      <PageHeader
+        title={name || 'Спикер'}
+        hint={
+          <>
+            id <Mono>{id}</Mono> — не меняется, на него ссылаются встречи и заявки
+          </>
+        }
+      />
 
       <Card>
         <div className="space-y-4">

@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Field,
+  PageHeader,
   Select,
   TextArea,
   TextInput,
@@ -145,6 +146,11 @@ export function AddBook() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Новая книга"
+        hint="meta.json, обложка и авторы — всё одним pull request."
+      />
+
       <Card>
         <div className="space-y-4">
           <Field label="Название (рус)">
@@ -258,7 +264,7 @@ export function AddBook() {
         <p className="mb-4 text-sm font-medium">Авторы</p>
         <div className="space-y-4">
           {authors.map((author, i) => (
-            <div key={i} className="rounded-xl border border-line p-4">
+            <div key={i} className="rounded-card border border-line p-4">
               <div className="mb-3 flex items-end gap-3">
                 <div className="grow">
                   <Field label={`Автор ${i + 1}`}>

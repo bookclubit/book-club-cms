@@ -16,7 +16,7 @@ export function ModeratorPicker({
 
   if (speakers.length === 0) {
     return (
-      <p className="text-sm text-muted">
+      <p className="text-sm text-ink-soft">
         Пока нет спикеров — добавьте их на вкладке «Спикеры», чтобы назначать модераторов.
       </p>
     )
@@ -34,8 +34,8 @@ export function ModeratorPicker({
             aria-pressed={on}
             className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
               on
-                ? 'bg-ink text-white'
-                : 'border border-line bg-white text-muted hover:text-ink'
+                ? 'bg-accent text-on-accent'
+                : 'border border-line bg-surface text-ink-soft hover:text-ink'
             }`}
           >
             {s.name}
