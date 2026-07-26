@@ -80,7 +80,7 @@ function TopicRow({
       <div className="flex flex-wrap items-center gap-3">
         <span className="nums w-6 shrink-0 text-sm text-ink-faint">{index + 1}</span>
 
-        <div className="min-w-48 flex-1">
+        <div className="min-w-32 flex-1">
           <TextInput
             value={topic.title}
             onChange={(e) => onChange({ ...topic, title: e.target.value })}
@@ -95,7 +95,7 @@ function TopicRow({
           ) : (
             <Badge>без спикера</Badge>
           )}
-          {materials > 0 ? <Badge tone="success">ссылок: {materials}</Badge> : null}
+          {materials > 0 ? <Badge>ссылок: {materials}</Badge> : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -159,8 +159,8 @@ function TopicRow({
                     onClick={() => toggleSpeaker(name)}
                     className={`whitespace-nowrap rounded-control border px-2.5 py-1 text-xs transition-colors duration-120 ease-out ${
                       active
-                        ? 'border-accent bg-accent text-on-accent'
-                        : 'border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink active:translate-y-px'
+                        ? 'bg-surface-2 font-medium text-ink'
+                        : 'text-ink-soft hover:bg-surface-2 hover:text-ink active:translate-y-px'
                     }`}
                   >
                     {name}
@@ -173,7 +173,7 @@ function TopicRow({
                   type="button"
                   aria-pressed={true}
                   onClick={() => toggleSpeaker(name)}
-                  className="whitespace-nowrap rounded-control border border-accent bg-accent px-2.5 py-1 text-xs text-on-accent"
+                  className="whitespace-nowrap rounded-control bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink"
                 >
                   {name}
                 </button>
@@ -282,7 +282,8 @@ export function TopicsEditor({
         </p>
       )}
 
-      <div className="rounded-control bg-surface-2 p-3">
+      {/* Без второй рамки: карточка уже есть, поле ввода отделено линией. */}
+      <div className={topics.length > 0 ? 'border-t border-line pt-4' : ''}>
         <Field
           label={topics.length > 0 ? 'Добавить темы' : 'Названия тем'}
           hint="по одному названию на строку; ссылки и спикеров можно проставить позже"
@@ -294,7 +295,7 @@ export function TopicsEditor({
             placeholder={'Почему Docker\nАрхитектура Docker\nЖизненный цикл контейнера'}
           />
         </Field>
-        <div className="mt-2.5 flex items-center gap-3">
+        <div className="mt-2.5 flex items-center gap-2">
           <Button variant="ghost" onClick={addBulk} disabled={bulk.trim() === ''}>
             Добавить в список
           </Button>

@@ -39,7 +39,7 @@ export function Login() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
-      <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">
         CMS Книжного клуба
       </h1>
       <p className="mb-6 mt-1.5 text-sm text-ink-soft">

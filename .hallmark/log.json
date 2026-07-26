@@ -2,8 +2,17 @@
   {
     "date": "2026-07-26",
     "macrostructure": "Workbench",
+    "theme": "custom (mono)",
+    "theme_axes": "light / inter-sans / neutral",
+    "vibe": "монохромный рабочий инструмент",
+    "enrichment": "none",
+    "brief": "CMS Книжного клуба — редизайн в монохром: чернила вместо синего, плотные таблицы"
+  },
+  {
+    "date": "2026-07-26",
+    "macrostructure": "Workbench",
     "theme": "Cobalt",
     "enrichment": "none",
-    "brief": "CMS Книжного клуба — редизайн админки: side-rail, плотные таблицы, тёмная тема"
+    "brief": "CMS Книжного клуба — первый редизайн (отклонён: синий акцент, разреженные таблицы)"
   }
 ]

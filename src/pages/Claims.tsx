@@ -256,7 +256,7 @@ export function Claims() {
               href={claim.slides_url}
               target="_blank"
               rel="noreferrer"
-              className="text-accent underline"
+              className="text-ink underline decoration-line-strong underline-offset-2"
             >
               {claim.slides_url}
             </a>
@@ -277,7 +277,7 @@ export function Claims() {
           {claim.status === 'confirmed' && !claim.speaker_id && (
             <Link
               to={`/speakers/new?claim=${claim.id}`}
-              className="rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover"
+              className="inline-flex h-8 items-center rounded-control bg-ink px-3 text-[13px] font-medium text-on-accent hover:bg-accent-hover"
             >
               Оформить спикером
             </Link>
@@ -354,8 +354,8 @@ function TabButton({
       aria-pressed={active}
       className={
         active
-          ? 'rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent'
-          : 'rounded-control border border-line px-4 py-2 text-sm font-medium text-ink-soft hover:text-ink'
+          ? 'rounded-control bg-surface-2 px-2.5 py-1 text-[13px] font-medium text-ink'
+          : 'rounded-control px-2.5 py-1 text-[13px] text-ink-soft hover:bg-surface-2 hover:text-ink'
       }
     >
       {children}

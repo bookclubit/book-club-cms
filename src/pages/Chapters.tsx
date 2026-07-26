@@ -7,14 +7,17 @@ import {
   Loading,
   Mono,
   PageHeader,
+  primaryLinkClass,
   Table,
   Td,
   Th,
   Tr,
+  TrGroup,
 } from '../components/ui'
 import { useDataClient, useIndex } from '../lib/hooks'
 
-// Все главы книги одной таблицей. В реестре теперь есть и пустые главы —
+// Все главы одной таблицей: книги — строки-подзаголовки внутри неё, а не
+// отдельные таблицы со своими шапками. В реестре есть и пустые главы —
 // они видны сразу после создания и помечены как заготовки.
 export function Chapters() {
   const gh = useDataClient()
@@ -29,12 +32,9 @@ export function Chapters() {
     <div>
       <PageHeader
         title="Главы и темы"
-        hint="Темы живут внутри главы: там же название, спикеры и ссылки на материалы."
+        hint="Темы живут внутри главы: там же спикеры и ссылки на материалы."
         action={
-          <Link
-            to="/chapters/new"
-            className="inline-flex items-center whitespace-nowrap rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
-          >
+          <Link to="/chapters/new" className={primaryLinkClass}>
             Новая глава
           </Link>
         }
@@ -47,7 +47,7 @@ export function Chapters() {
       )}
 
       {books.length > 1 && (
-        <div className="mb-5 flex flex-wrap gap-1.5">
+        <div className="mb-4 flex flex-wrap gap-1">
           <FilterChip active={book === 'all'} onClick={() => setBook('all')}>
             Все книги
           </FilterChip>
@@ -59,61 +59,68 @@ export function Chapters() {
         </div>
       )}
 
-      <div className="space-y-6">
-        {visible.map((b) => (
-          <section key={b.folder}>
-            <h2 className="mb-2 font-display text-[15px] font-semibold tracking-tight text-ink">
-              {b.title}{' '}
-              <span className="nums text-sm font-normal text-ink-faint">
-                · глав {b.chapters.length}
-              </span>
-            </h2>
-
-            {b.chapters.length === 0 ? (
-              <p className="text-sm text-ink-faint">Глав нет.</p>
-            ) : (
-              <Table>
-                <thead>
-                  <tr>
-                    <Th className="w-14">№</Th>
-                    <Th>Глава</Th>
-                    <Th className="w-28">Темы</Th>
-                    <Th className="w-28" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {b.chapters.map((ch) => (
-                    <Tr key={ch.slug}>
-                      <Td className="nums text-ink-faint">{ch.order}</Td>
-                      <Td>
-                        <span className="block font-medium">{ch.title}</span>
+      {total > 0 && (
+        <Table>
+          <thead>
+            <tr>
+              <Th className="w-10 text-right">№</Th>
+              <Th>Глава</Th>
+              <Th className="w-24 text-right">Темы</Th>
+              <Th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((b) => (
+              <Fragmented key={b.folder}>
+                <TrGroup colSpan={4}>
+                  {b.title}
+                  <span className="nums ml-2 text-ink-faint">{b.chapters.length}</span>
+                </TrGroup>
+                {b.chapters.map((ch) => (
+                  <Tr key={ch.slug}>
+                    <Td className="nums text-right text-ink-faint">{ch.order}</Td>
+                    <Td>
+                      <Link
+                        to={`/chapters/${b.folder}/${ch.slug}/edit`}
+                        className="group flex flex-wrap items-baseline gap-x-2"
+                      >
+                        <span className="font-medium text-ink group-hover:underline group-hover:decoration-line-strong group-hover:underline-offset-2">
+                          {ch.title}
+                        </span>
                         <Mono>{ch.slug}</Mono>
-                      </Td>
-                      <Td>
-                        {ch.topics > 0 ? (
-                          <span className="nums text-ink-soft">{ch.topics}</span>
-                        ) : (
-                          <Badge tone="warn">заготовка</Badge>
-                        )}
-                      </Td>
-                      <Td>
-                        <Link
-                          to={`/chapters/${b.folder}/${ch.slug}/edit`}
-                          className="whitespace-nowrap text-sm font-medium text-accent underline decoration-accent/30 underline-offset-2 transition-colors duration-120 ease-out hover:decoration-accent"
-                        >
-                          Открыть
-                        </Link>
-                      </Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </Table>
-            )}
-          </section>
-        ))}
-      </div>
+                      </Link>
+                    </Td>
+                    <Td className="text-right">
+                      {ch.topics > 0 ? (
+                        <span className="nums text-ink-soft">{ch.topics}</span>
+                      ) : (
+                        <Badge>заготовка</Badge>
+                      )}
+                    </Td>
+                    <Td className="text-right">
+                      <Link
+                        to={`/chapters/${b.folder}/${ch.slug}/edit`}
+                        aria-label={`Открыть главу ${ch.order}`}
+                        className="text-ink-faint transition-colors duration-120 ease-out hover:text-ink"
+                      >
+                        ›
+                      </Link>
+                    </Td>
+                  </Tr>
+                ))}
+              </Fragmented>
+            ))}
+          </tbody>
+        </Table>
+      )}
     </div>
   )
+}
+
+// Группа строк книги: <tbody> может содержать только строки, поэтому
+// оборачиваем их фрагментом, а не элементом.
+function Fragmented({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }
 
 function FilterChip({
@@ -130,10 +137,10 @@ function FilterChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`whitespace-nowrap rounded-control border px-2.5 py-1 text-sm transition-colors duration-120 ease-out ${
+      className={`whitespace-nowrap rounded-control px-2.5 py-1 text-[13px] transition-colors duration-120 ease-out ${
         active
-          ? 'border-accent bg-accent text-on-accent'
-          : 'border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink active:translate-y-px'
+          ? 'bg-surface-2 font-medium text-ink'
+          : 'text-ink-soft hover:bg-surface-2 hover:text-ink active:translate-y-px'
       }`}
     >
       {children}

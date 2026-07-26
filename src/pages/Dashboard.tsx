@@ -44,20 +44,20 @@ export function Dashboard() {
           <Link
             key={a.to}
             to={a.to}
-            className={`group rounded-card border border-line bg-surface p-5 transition-colors duration-120 ease-out hover:border-line-strong hover:bg-surface-2 ${
+            className={`group rounded-card border border-line bg-surface p-4 transition-colors duration-120 ease-out hover:border-line-strong hover:bg-surface-2 ${
               a.wide ? 'sm:col-span-2' : ''
             }`}
           >
-            <p className="font-display font-semibold tracking-tight text-ink transition-colors duration-120 ease-out group-hover:text-accent">
+            <p className="text-[13px] font-semibold text-ink">
               {a.title}
             </p>
-            <p className="mt-1 text-sm text-ink-soft">{a.desc}</p>
+            <p className="mt-0.5 text-[13px] text-ink-soft">{a.desc}</p>
           </Link>
         ))}
       </div>
 
       <section className="mb-8">
-        <h2 className="mb-3 font-display text-[15px] font-semibold tracking-tight text-ink">
+        <h2 className="mb-3 text-[13px] font-semibold text-ink">
           Сейчас в клубе
         </h2>
         {loading && <Loading label="Загружаем реестр…" />}
@@ -89,7 +89,7 @@ export function Dashboard() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-display text-[15px] font-semibold tracking-tight text-ink">
+        <h2 className="mb-3 text-[13px] font-semibold text-ink">
           Открытые pull request-ы
         </h2>
         {prs === null && <p className="text-sm text-ink-faint">Не удалось загрузить список.</p>}
@@ -104,7 +104,7 @@ export function Dashboard() {
                   href={pr.html_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between gap-4 rounded-control border border-line bg-surface px-4 py-3 text-sm transition-colors duration-120 ease-out hover:border-line-strong hover:bg-surface-2"
+                  className="flex items-center justify-between gap-4 rounded-control border border-line bg-surface px-3 py-2 text-[13px] transition-colors duration-120 ease-out hover:border-line-strong hover:bg-surface-2"
                 >
                   <span className="truncate">{pr.title}</span>
                   <span className="nums shrink-0 text-ink-faint">#{pr.number}</span>
@@ -121,8 +121,8 @@ export function Dashboard() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="nums font-display text-2xl font-semibold tracking-tight text-ink">{value}</p>
-      <p className="mt-0.5 text-sm text-ink-soft">{label}</p>
+      <p className="nums text-xl font-semibold text-ink">{value}</p>
+      <p className="mt-0.5 text-[13px] text-ink-soft">{label}</p>
     </div>
   )
 }

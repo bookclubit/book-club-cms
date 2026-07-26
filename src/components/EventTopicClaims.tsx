@@ -96,7 +96,7 @@ export function EventTopicClaims({
                       href={claim.slides_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="min-w-0 truncate text-accent underline"
+                      className="min-w-0 truncate text-ink underline decoration-line-strong underline-offset-2"
                     >
                       {claim.slides_url}
                     </a>

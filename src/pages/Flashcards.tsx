@@ -96,7 +96,7 @@ export function Flashcards() {
         action={
           <Link
             to="/flashcards/new"
-            className="inline-flex items-center whitespace-nowrap rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
+            className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-control bg-ink px-3 text-[13px] font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
           >
             Новые карточки
           </Link>

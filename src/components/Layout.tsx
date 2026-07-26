@@ -2,8 +2,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { clearToken } from '../lib/auth'
 import { ThemeToggle } from './ThemeToggle'
 
-// N3 side-rail: постоянная навигация слева, контент на всю оставшуюся ширину.
-// Разделы сгруппированы по смыслу — «что читаем» и «что происходит в клубе».
+// N3 side-rail: узкая постоянная навигация слева, контент справа. Рейл живёт на
+// том же холсте, что страница, и отделён одной волосяной линией.
 const groups: Array<{ title: string; links: Array<{ to: string; label: string; exact?: boolean }> }> = [
   {
     title: 'Контент',
@@ -30,9 +30,9 @@ const groups: Array<{ title: string; links: Array<{ to: string; label: string; e
 
 function railLink({ isActive }: { isActive: boolean }) {
   return [
-    'block rounded-control px-3 py-1.5 text-sm transition-colors duration-120 ease-out',
+    'block rounded-control px-2 py-1 text-[13px] transition-colors duration-120 ease-out',
     isActive
-      ? 'bg-accent-soft font-medium text-accent'
+      ? 'bg-surface-2 font-medium text-ink'
       : 'text-ink-soft hover:bg-surface-2 hover:text-ink',
   ].join(' ')
 }
@@ -41,25 +41,18 @@ export function Layout() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[15rem_1fr]">
-      <aside className="border-b border-line bg-surface lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r">
-        <div className="flex items-start justify-between gap-3 px-5 pt-5">
-          <div>
-            <p className="font-display text-[15px] font-semibold tracking-tight text-ink">
-              Книжный клуб
-            </p>
-            <p className="mt-0.5 text-xs text-ink-faint">админка контента</p>
-          </div>
+    <div className="min-h-screen lg:grid lg:grid-cols-[13.5rem_1fr]">
+      <aside className="border-b border-line lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <div className="flex items-center justify-between gap-2 px-4 pt-4">
+          <p className="text-[13px] font-semibold text-ink">Книжный клуб</p>
           <ThemeToggle />
         </div>
 
-        <nav className="px-3 py-4 lg:py-5">
+        <nav className="px-2 py-4">
           {groups.map((group) => (
             <div key={group.title} className="mb-4 last:mb-0">
-              <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
-                {group.title}
-              </p>
-              <ul className="space-y-0.5">
+              <p className="px-2 pb-1 text-[11px] text-ink-faint">{group.title}</p>
+              <ul className="space-y-px">
                 {group.links.map((link) => (
                   <li key={link.to}>
                     <NavLink to={link.to} end={link.exact} className={railLink}>
@@ -72,14 +65,14 @@ export function Layout() {
           ))}
         </nav>
 
-        <div className="border-t border-line px-5 py-4 text-xs text-ink-faint">
+        <div className="px-4 py-3 text-[12px] lg:absolute lg:bottom-0 lg:w-54">
           <a
             href="https://github.com/bookclubit/book-club-data"
             target="_blank"
             rel="noreferrer"
-            className="block whitespace-nowrap text-ink-soft underline decoration-line underline-offset-2 transition-colors duration-120 ease-out hover:text-ink"
+            className="block whitespace-nowrap text-ink-faint transition-colors duration-120 ease-out hover:text-ink"
           >
-            book-club-data
+            book-club-data ↗
           </a>
           <button
             type="button"
@@ -87,15 +80,15 @@ export function Layout() {
               clearToken()
               navigate('/login')
             }}
-            className="mt-2 whitespace-nowrap text-ink-faint transition-colors duration-120 ease-out hover:text-ink"
+            className="mt-1.5 whitespace-nowrap text-ink-faint transition-colors duration-120 ease-out hover:text-ink"
           >
             Выйти
           </button>
         </div>
       </aside>
 
-      <main className="min-w-0 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-10">
-        <div className="mx-auto max-w-5xl">
+      <main className="min-w-0 px-5 pb-24 pt-6 lg:px-10 lg:pt-9">
+        <div className="mx-auto max-w-3xl">
           <Outlet />
         </div>
       </main>

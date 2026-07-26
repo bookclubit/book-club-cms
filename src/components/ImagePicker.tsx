@@ -49,7 +49,7 @@ export function ImagePicker({
           type="file"
           accept="image/*"
           onChange={(e) => void handleFile(e.target.files?.[0])}
-          className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-control file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:border-accent/30"
+          className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-control file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-ink hover:file:border-line-strong"
         />
         {preview && (
           <div className="flex shrink-0 items-center gap-2">

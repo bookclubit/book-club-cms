@@ -6,6 +6,7 @@ import {
   ErrorBox,
   Loading,
   PageHeader,
+  primaryLinkClass,
   Table,
   Td,
   Th,
@@ -67,7 +68,7 @@ export function Events() {
         action={
           <Link
             to="/events/new"
-            className="inline-flex items-center whitespace-nowrap rounded-control bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors duration-120 ease-out hover:bg-accent-hover"
+            className={primaryLinkClass}
           >
             Новая встреча
           </Link>
@@ -120,9 +121,9 @@ export function Events() {
                 <Td>
                   <Link
                     to={`/events/${r.dir}/${encodeURIComponent(r.file)}/edit`}
-                    className="whitespace-nowrap text-sm font-medium text-accent underline decoration-accent/30 underline-offset-2 transition-colors duration-120 ease-out hover:decoration-accent"
+                    className="text-ink-faint transition-colors duration-120 ease-out hover:text-ink" aria-label="Открыть"
                   >
-                    Открыть
+                    ›
                   </Link>
                 </Td>
               </Tr>
@@ -150,8 +151,8 @@ function TabButton({
       aria-pressed={active}
       className={`whitespace-nowrap rounded-control border px-2.5 py-1 text-sm transition-colors duration-120 ease-out ${
         active
-          ? 'border-accent bg-accent text-on-accent'
-          : 'border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink active:translate-y-px'
+          ? 'bg-surface-2 font-medium text-ink'
+          : 'text-ink-soft hover:bg-surface-2 hover:text-ink active:translate-y-px'
       }`}
     >
       {children}
