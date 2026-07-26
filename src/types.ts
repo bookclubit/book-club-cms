@@ -113,6 +113,8 @@ export interface ClosedChapterEvent {
   stream?: number // номер эфира — показывается как «Книжный клуб <stream>»
   moderators?: EventModerator[]
   materials?: EventMaterial[]
+  /** Задание к встрече: что прочитать и подготовить (идёт в посты бота). */
+  assignment?: string
   finished?: boolean
 }
 
@@ -151,6 +153,8 @@ export interface LiveTalkEvent {
   /** Книга и глава программы эфира — из них бот предлагает темы спикерам. */
   book_id?: string
   chapter?: string
+  /** Задание к встрече: что прочитать и подготовить (идёт в посты бота). */
+  assignment?: string
   finished?: boolean
   /** Номер стрима — часть имени папки доклада в talks (BC-<stream>-…). */
   stream?: number

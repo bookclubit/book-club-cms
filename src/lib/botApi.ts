@@ -1,3 +1,5 @@
+import type { ClubEvent } from '../types'
+
 // API бота (Cloudflare Worker): заявки спикеров и их модерация.
 // Админ-токен (= секрет ADMIN_API_TOKEN воркера) хранится в localStorage,
 // как и GitHub-токен.
@@ -110,4 +112,87 @@ export async function setClaimSlides(topicId: string, slidesUrl: string): Promis
 export async function fetchClaimPhoto(id: number): Promise<Blob> {
   const res = await adminFetch(`/api/admin/photo?claim=${id}`)
   return res.blob()
+}
+
+// ── Анонсы встреч в группу клуба ─────────────────────────────────────────────
+
+/** Поля встречи, которые бот кладёт в пост (совпадают с events/*.json). */
+export interface AnnounceEventPayload {
+  id: string
+  type: 'closed-chapter' | 'live-talk'
+  title: string
+  date: string
+  time: string
+  stream?: number
+  book_id?: string
+  chapter?: string
+  assignment?: string
+  pages?: { from: number; to: number }
+  streams?: { youtube?: string; vk?: string }
+  call_url?: string
+  notes_board_url?: string
+  materials?: { title: string; url: string }[]
+  moderators?: { name: string }[]
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  // Порциями: спред большого массива в String.fromCharCode переполняет стек.
+  const CHUNK = 0x8000
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return btoa(binary)
+}
+
+/**
+ * Просит бота анонсировать встречу: он сразу постит анонс в группу клуба и
+ * планирует афишу в день встречи и напоминание за 5 минут до начала.
+ *
+ * Встречу передаём полями формы, а не ссылкой на файл: в book-club-data она
+ * появится только после мержа pull request-а, а анонс нужен сразу.
+ */
+export async function announceEvent(
+  event: AnnounceEventPayload,
+  posters: { announce?: Uint8Array | null; day?: Uint8Array | null },
+): Promise<void> {
+  await adminFetch('/api/admin/announce', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event,
+      posters: {
+        ...(posters.announce ? { announce: toBase64(posters.announce) } : {}),
+        ...(posters.day ? { day: toBase64(posters.day) } : {}),
+      },
+    }),
+  })
+}
+
+/**
+ * Поля встречи для анонса. Берём только то, что нужно постам: pages,
+ * notes_board_url и moderators есть лишь у открытых обсуждений.
+ */
+export function announcePayload(event: ClubEvent): AnnounceEventPayload {
+  return {
+    id: event.id,
+    type: event.type,
+    title: event.title,
+    date: event.date,
+    time: event.time,
+    ...(event.stream ? { stream: event.stream } : {}),
+    ...(event.book_id ? { book_id: event.book_id } : {}),
+    ...(event.chapter ? { chapter: event.chapter } : {}),
+    ...(event.assignment ? { assignment: event.assignment } : {}),
+    ...(event.streams ? { streams: event.streams } : {}),
+    ...(event.call_url ? { call_url: event.call_url } : {}),
+    ...(event.materials ? { materials: event.materials } : {}),
+    ...(event.type === 'closed-chapter' && event.pages ? { pages: event.pages } : {}),
+    ...(event.type === 'closed-chapter' && event.notes_board_url
+      ? { notes_board_url: event.notes_board_url }
+      : {}),
+    ...(event.type === 'closed-chapter' && event.moderators
+      ? { moderators: event.moderators.map((m) => ({ name: m.name })) }
+      : {}),
+  }
 }

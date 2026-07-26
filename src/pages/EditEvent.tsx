@@ -8,9 +8,11 @@ import {
 } from '../components/EventForm'
 import { EventTopicClaims } from '../components/EventTopicClaims'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, ErrorBox, Field, Mono, PageHeader, TextInput } from '../components/ui'
+import { Card, ErrorBox, Field, Mono, PageHeader, SuccessBox, TextInput } from '../components/ui'
 import { getToken } from '../lib/auth'
 import {
+  announceEvent,
+  announcePayload,
   assignClaim,
   getBotToken,
   listSpeakerClaims,
@@ -52,6 +54,8 @@ export function EditEvent() {
   const [claims, setClaims] = useState<SpeakerClaim[]>([])
   const [claimsMsg, setClaimsMsg] = useState<string | null>(null)
   const [busyTopic, setBusyTopic] = useState<string | null>(null)
+  // Итог обновления постов бота (PR уже создан, поэтому это заметка, не ошибка).
+  const [announceNote, setAnnounceNote] = useState<{ ok: boolean; text: string } | null>(null)
 
   // генерация презентации доклада (repository_dispatch в talks)
   const [genId, setGenId] = useState<string | null>(null)
@@ -74,6 +78,7 @@ export function EditEvent() {
     form.setVk(ev.streams?.vk ?? '')
     form.setStream(ev.stream ? String(ev.stream) : '')
     form.setFinished(ev.finished ?? false)
+    form.setAssignment(ev.assignment ?? '')
     if (ev.type === 'closed-chapter') {
       form.setFolder(index.books.find((b) => b.id === ev.book_id)?.folder ?? '')
       form.setChapterSlug(ev.chapter)
@@ -169,7 +174,7 @@ export function EditEvent() {
       const renamed = newPath !== oldPath
       if (renamed) files.push({ path: oldPath, content: null })
 
-      return openContentPR(gh, {
+      const result = await openContentPR(gh, {
         branch: `cms/edit-event-${form.date}-${slug}`,
         title: `fix(events): обновить встречу «${form.title.trim()}» (${form.date})`,
         body: [
@@ -186,6 +191,24 @@ export function EditEvent() {
           .join('\n'),
         files,
       })
+
+      // Обновляем у бота снимок встречи и афишу дня: он берёт поля из формы,
+      // потому что правки лежат в открытом PR. Анонс повторно не публикуется —
+      // бот помнит, что он уже вышел.
+      if (form.announce) {
+        try {
+          await announceEvent(announcePayload(next), {
+            announce: form.posterAnnounce,
+            day: form.posterDay,
+          })
+          setAnnounceNote({ ok: true, text: 'План постов о встрече обновлён.' })
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err)
+          setAnnounceNote({ ok: false, text: `Не удалось обновить посты бота: ${reason}` })
+        }
+      }
+
+      return result
     })
   }
 
@@ -419,6 +442,14 @@ export function EditEvent() {
         topicsLoading={topicsLoading}
         liveTalkExtra={liveTalkExtra}
       />
+
+      {announceNote ? (
+        announceNote.ok ? (
+          <SuccessBox>{announceNote.text}</SuccessBox>
+        ) : (
+          <ErrorBox>{announceNote.text}</ErrorBox>
+        )
+      ) : null}
 
       <PublishPanel
         state={state}

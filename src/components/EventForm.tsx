@@ -19,8 +19,9 @@ import type {
 } from '../types'
 import { EventTopicsPicker } from './EventTopicsPicker'
 import { ImagePicker } from './ImagePicker'
+import { PosterPicker } from './PosterPicker'
 import { ModeratorPicker } from './ModeratorPicker'
-import { Card, Field, Select, TextArea, TextInput } from './ui'
+import { Card, CardTitle, Field, Select, TextArea, TextInput } from './ui'
 
 export type EventKind = 'closed-chapter' | 'live-talk'
 
@@ -33,6 +34,13 @@ export function useEventFormState() {
   const [time, setTime] = useState('19:00')
   const [callUrl, setCallUrl] = useState('')
   const [materialsText, setMaterialsText] = useState('')
+  // Задание к встрече: что прочитать и подготовить (идёт в посты бота и в данные).
+  const [assignment, setAssignment] = useState('')
+  // Афиши для постов в группу: анонс сразу и афиша в день встречи.
+  const [posterAnnounce, setPosterAnnounce] = useState<Uint8Array | null>(null)
+  const [posterDay, setPosterDay] = useState<Uint8Array | null>(null)
+  // Постить ли встречу в группу клуба (иногда встречу заводят «в стол»).
+  const [announce, setAnnounce] = useState(true)
 
   // closed-chapter
   const [folder, setFolder] = useState('')
@@ -61,6 +69,10 @@ export function useEventFormState() {
     time, setTime,
     callUrl, setCallUrl,
     materialsText, setMaterialsText,
+    assignment, setAssignment,
+    posterAnnounce, setPosterAnnounce,
+    posterDay, setPosterDay,
+    announce, setAnnounce,
     folder, setFolder,
     chapterSlug, setChapterSlug,
     pagesFrom, setPagesFrom,
@@ -114,6 +126,7 @@ export function buildEventFiles(opts: {
     ...(kind === 'closed-chapter' && form.callUrl.trim()
       ? { call_url: form.callUrl.trim() }
       : {}),
+    ...(form.assignment.trim() ? { assignment: form.assignment.trim() } : {}),
     ...(materials.length > 0 ? { materials } : {}),
     ...(form.finished ? { finished: true } : {}),
   }
@@ -285,6 +298,17 @@ export function EventFormFields({
               onChange={(e) => form.setMaterialsText(e.target.value)}
             />
           </Field>
+          <Field
+            label="Задание к встрече"
+            hint="что прочитать и подготовить — попадёт в пост бота и в данные встречи"
+          >
+            <TextArea
+              rows={2}
+              value={form.assignment}
+              onChange={(e) => form.setAssignment(e.target.value)}
+              placeholder="прочитать главу 1 и выписать вопросы"
+            />
+          </Field>
         </div>
       </Card>
 
@@ -433,6 +457,40 @@ export function EventFormFields({
           {liveTalkExtra}
         </>
       )}
+
+      {/* Афиши — последним блоком: это уже не про содержание встречи,
+          а про то, как она уйдёт в группу. */}
+      <Card>
+        <CardTitle hint="Анонс уходит в группу сразу после создания встречи, афиша дня — в 10:00 МСК, напоминание — за 5 минут до начала">
+          Посты в группу клуба
+        </CardTitle>
+        <div className="space-y-4">
+          <label className="flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={form.announce}
+              onChange={(e) => form.setAnnounce(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-ink"
+            />
+            <span className="text-[13px] text-ink">
+              Публиковать посты о встрече
+              <span className="block text-xs text-ink-faint">
+                чат задаётся командой /anons_here в самой группе
+              </span>
+            </span>
+          </label>
+          <PosterPicker
+            label="Афиша анонса"
+            hint="JPEG или PNG до 10 МБ; без афиши пост уйдёт текстом"
+            onChange={(p) => form.setPosterAnnounce(p?.bytes ?? null)}
+          />
+          <PosterPicker
+            label="Афиша в день встречи"
+            hint="можно загрузить позже правкой встречи"
+            onChange={(p) => form.setPosterDay(p?.bytes ?? null)}
+          />
+        </div>
+      </Card>
     </>
   )
 }

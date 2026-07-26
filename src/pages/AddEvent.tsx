@@ -7,7 +7,8 @@ import {
   type EventKind,
 } from '../components/EventForm'
 import { PublishPanel } from '../components/PublishPanel'
-import { Field, PageHeader, Select } from '../components/ui'
+import { ErrorBox, Field, PageHeader, Select, SuccessBox } from '../components/ui'
+import { announceEvent, announcePayload } from '../lib/botApi'
 import { useChapterTopics, useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
@@ -18,6 +19,9 @@ export function AddEvent() {
   const { state, publish, reset } = usePublish()
 
   const [kind, setKind] = useState<EventKind>('closed-chapter')
+  // Итог анонса в группе: сообщение об успехе или причина, почему не ушло.
+  // PR при этом уже создан, поэтому это предупреждение, а не ошибка формы.
+  const [announceNote, setAnnounceNote] = useState<{ ok: boolean; text: string } | null>(null)
   const form = useEventFormState()
 
   const book = index?.books.find((b) => b.folder === form.folder)
@@ -45,7 +49,7 @@ export function AddEvent() {
         ...extraFiles,
       ]
 
-      return openContentPR(gh, {
+      const result = await openContentPR(gh, {
         branch: `cms/event-${form.date}-${slug}`,
         title: `feat(events): ${form.title.trim()} (${form.date})`,
         body: [
@@ -61,6 +65,26 @@ export function AddEvent() {
         ].join('\n'),
         files,
       })
+
+      // Анонс в группу клуба: встречи ещё нет в book-club-data (PR открыт),
+      // поэтому бот получает поля формы. Сбой анонса не отменяет PR.
+      if (form.announce) {
+        try {
+          await announceEvent(announcePayload(event), {
+            announce: form.posterAnnounce,
+            day: form.posterDay,
+          })
+          setAnnounceNote({ ok: true, text: 'Анонс опубликован в группе клуба.' })
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err)
+          setAnnounceNote({
+            ok: false,
+            text: `Пул-реквест создан, но анонс не ушёл: ${reason}`,
+          })
+        }
+      }
+
+      return result
     })
   }
 
@@ -91,6 +115,14 @@ export function AddEvent() {
             : 'Доклады: Docker на практике'
         }
       />
+
+      {announceNote ? (
+        announceNote.ok ? (
+          <SuccessBox>{announceNote.text}</SuccessBox>
+        ) : (
+          <ErrorBox>{announceNote.text}</ErrorBox>
+        )
+      ) : null}
 
       <PublishPanel
         state={state}
