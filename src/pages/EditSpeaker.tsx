@@ -5,6 +5,7 @@ import { PublishPanel } from '../components/PublishPanel'
 import {
   collectSocials,
   EMPTY_SOCIALS,
+  socialsReady,
   SpeakerSocialsFields,
 } from '../components/SpeakerSocialsFields'
 import { Card, ErrorBox, Field, Mono, PageHeader, TextArea, TextInput } from '../components/ui'
@@ -39,7 +40,8 @@ export function EditSpeaker() {
     setSocials({ ...EMPTY_SOCIALS, ...speaker.socials })
   }, [speaker])
 
-  const ready = Boolean(speaker && name.trim())
+  // Telegram обязателен: по нему бот узнаёт спикера и открывает ему темы.
+  const ready = Boolean(speaker && name.trim() && socialsReady(socials))
 
   function submit() {
     if (!speakersFile || !speaker) return
@@ -150,7 +152,9 @@ export function EditSpeaker() {
         onSubmit={submit}
         onReset={reset}
         disabled={!ready}
-        disabledReason="Имя не может быть пустым"
+        disabledReason={
+          name.trim() ? 'Укажите Telegram: ник или ссылка t.me/username' : 'Имя не может быть пустым'
+        }
         submitLabel="Создать pull request с правками"
       />
     </div>

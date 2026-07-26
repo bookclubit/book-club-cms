@@ -5,6 +5,7 @@ import { PublishPanel } from '../components/PublishPanel'
 import {
   collectSocials,
   EMPTY_SOCIALS,
+  socialsReady,
   SpeakerSocialsFields,
 } from '../components/SpeakerSocialsFields'
 import { Card, Field, PageHeader, TextArea, TextInput } from '../components/ui'
@@ -106,7 +107,8 @@ export function AddSpeaker() {
   const taken = Boolean(
     speakerId && speakersFile.data?.speakers.some((s) => s.id === speakerId),
   )
-  const ready = Boolean(speakerId && avatar && speakersFile.data)
+  // Telegram обязателен: по нему бот узнаёт спикера и открывает ему темы.
+  const ready = Boolean(speakerId && avatar && speakersFile.data && socialsReady(socials))
 
   function submit() {
     const current = speakersFile.data
@@ -230,7 +232,13 @@ export function AddSpeaker() {
         onSubmit={submit}
         onReset={reset}
         disabled={!ready || taken}
-        disabledReason={taken ? 'Спикер уже существует' : 'Укажите имя, фамилию и аватарку'}
+        disabledReason={
+          taken
+            ? 'Спикер уже существует'
+            : speakerId && avatar
+              ? 'Укажите Telegram: ник или ссылка t.me/username'
+              : 'Укажите имя, фамилию, аватарку и Telegram'
+        }
       />
     </div>
   )

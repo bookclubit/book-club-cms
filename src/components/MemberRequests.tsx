@@ -119,6 +119,14 @@ export function MemberRequests() {
             <StatusBadge status={member.status} />
           </div>
 
+          {/* Профиль спикера заводится по @username: без него бот не узнает человека. */}
+          {!member.username && (
+            <p className="mt-3 rounded-control bg-warn-soft p-3 text-xs text-warn">
+              У человека не задан @username в Telegram — попросите завести, иначе профиль спикера
+              не оформить и темы не откроются.
+            </p>
+          )}
+
           {member.about && (
             <p className="mt-3 whitespace-pre-line rounded-control bg-surface-2 p-3 text-sm text-ink-soft">
               {member.about}
