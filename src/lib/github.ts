@@ -34,6 +34,11 @@ export interface PullRequestInfo {
   title: string
   head: { ref: string }
   created_at: string
+  /** Поля ниже приходят только в детальном запросе PR (не в списке). */
+  draft?: boolean
+  mergeable?: boolean | null
+  /** clean | unstable (красные проверки) | blocked | dirty (конфликт) | unknown */
+  mergeable_state?: string
 }
 
 function bytesToBase64(data: Uint8Array): string {

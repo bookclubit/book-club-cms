@@ -12,6 +12,7 @@ import {
   Th,
   Tr,
 } from '../components/ui'
+import { MergeButton } from '../components/MergeButton'
 import type { PullRequestInfo } from '../lib/github'
 import { useDataClient, useIndex, useLoad } from '../lib/hooks'
 import type { ClubEvent } from '../types'
@@ -40,6 +41,7 @@ export function Events() {
   const gh = useDataClient()
   const { data: index } = useIndex(gh)
   const [tab, setTab] = useState<Tab>('active')
+  const [mergeNote, setMergeNote] = useState<string | null>(null)
 
   const rows = useLoad<EventRow[]>(async () => {
     if (!index) return []
@@ -135,6 +137,15 @@ export function Events() {
                 >
                   Доработать
                 </Link>
+                <MergeButton
+                  number={pr.number}
+                  branch={pr.head?.ref}
+                  onMerged={(note) => {
+                    setMergeNote(note)
+                    pending.reload()
+                    rows.reload()
+                  }}
+                />
                 <a
                   href={pr.html_url}
                   target="_blank"
@@ -146,6 +157,7 @@ export function Events() {
               </li>
             ))}
           </ul>
+          {mergeNote && <p className="mt-3 text-xs text-ink-soft">{mergeNote}</p>}
         </section>
       )}
 

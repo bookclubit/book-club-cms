@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MergeButton } from '../components/MergeButton'
 import { Badge, Card, ErrorBox, Loading, PageHeader } from '../components/ui'
 import type { PullRequestInfo } from '../lib/github'
 import { useDataClient, useIndex } from '../lib/hooks'
@@ -22,6 +23,7 @@ export function Dashboard() {
   const gh = useDataClient()
   const { data: index, error, loading } = useIndex(gh)
   const [prs, setPrs] = useState<PullRequestInfo[] | null>(null)
+  const [mergeNote, setMergeNote] = useState<string | null>(null)
 
   useEffect(() => {
     gh.listOpenPullRequests()
@@ -97,21 +99,35 @@ export function Dashboard() {
           <p className="text-sm text-ink-faint">Нет открытых PR — всё смержено.</p>
         )}
         {prs && prs.length > 0 && (
-          <ul className="space-y-2">
-            {prs.map((pr) => (
-              <li key={pr.number}>
-                <a
-                  href={pr.html_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-4 rounded-control border border-line bg-surface px-3 py-2 text-[13px] transition-colors duration-120 ease-out hover:border-line-strong hover:bg-surface-2"
+          <>
+            <ul className="space-y-2">
+              {prs.map((pr) => (
+                <li
+                  key={pr.number}
+                  className="flex flex-wrap items-center gap-3 rounded-control border border-line bg-surface px-3 py-2 text-[13px]"
                 >
-                  <span className="truncate">{pr.title}</span>
+                  <a
+                    href={pr.html_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="min-w-0 grow truncate transition-colors duration-120 ease-out hover:text-accent"
+                  >
+                    {pr.title}
+                  </a>
                   <span className="nums shrink-0 text-ink-faint">#{pr.number}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
+                  <MergeButton
+                    number={pr.number}
+                    branch={pr.head?.ref}
+                    onMerged={(note) => {
+                      setMergeNote(note)
+                      setPrs((prev) => (prev ?? []).filter((p) => p.number !== pr.number))
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+            {mergeNote && <p className="mt-3 text-xs text-ink-soft">{mergeNote}</p>}
+          </>
         )}
       </section>
     </div>
