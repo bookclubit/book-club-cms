@@ -273,14 +273,40 @@ export interface PostDraft {
   edited: boolean
   has_poster: boolean
   status: 'pending' | 'sent'
+  /** Когда админ одобрил текст. Без одобрения расписание недоступно. */
+  approved_at: number | null
+  /** Время автопубликации (epoch ms) или null — публикуем вручную. */
+  scheduled_at: number | null
+  /** Куда публиковать по расписанию; null — во все подключённые группы. */
+  scheduled_chats: number[] | null
+  /** Сколько раз бот уже пытался опубликовать по расписанию. */
+  attempts: number
+  /** Почему не ушло в последний раз. */
+  publish_error: string | null
+  /** Подсказанное ботом время публикации — им заполняем поле расписания. */
+  suggested_at: number | null
   sent_at: number | null
   sent_to: { chat_id: number; message_id: number | null }[] | null
   updated_at: number
 }
 
-export async function listPosts(): Promise<{ posts: PostDraft[]; chats: AnnounceChat[] }> {
+export async function listPosts(): Promise<{
+  posts: PostDraft[]
+  chats: AnnounceChat[]
+  max_attempts: number
+}> {
   const res = await adminFetch('/api/admin/posts')
-  return (await res.json()) as { posts: PostDraft[]; chats: AnnounceChat[] }
+  return (await res.json()) as {
+    posts: PostDraft[]
+    chats: AnnounceChat[]
+    max_attempts: number
+  }
+}
+
+/** Афиша поста для превью: загруженная картинка или файл из Telegram. */
+export async function fetchPostPoster(id: number): Promise<Blob> {
+  const res = await adminFetch(`/api/admin/posts/poster?id=${id}`)
+  return res.blob()
 }
 
 async function postAction<T>(body: Record<string, unknown>): Promise<T> {
@@ -308,6 +334,28 @@ export async function savePostText(id: number, text: string): Promise<void> {
 export async function refreshPostText(id: number): Promise<string> {
   const data = await postAction<{ text: string }>({ action: 'refresh', id })
   return data.text
+}
+
+/** «Текст согласован»: открывает планирование публикации. */
+export async function approvePost(id: number, approved = true): Promise<void> {
+  await postAction({ action: 'approve', id, approved })
+}
+
+/**
+ * Планирует публикацию на момент `at` (epoch ms) или снимает расписание (null).
+ * Бот проверяет расписание каждые 5 минут, поэтому точность — до 5 минут.
+ */
+export async function schedulePost(
+  id: number,
+  at: number | null,
+  chatIds?: number[],
+): Promise<void> {
+  await postAction({ action: 'schedule', id, at, ...(chatIds?.length ? { chat_ids: chatIds } : {}) })
+}
+
+/** Заменить афишу поста; без `bytes` — убрать картинку совсем. */
+export async function setPostPoster(id: number, bytes?: Uint8Array | null): Promise<void> {
+  await postAction({ action: 'poster', id, poster: bytes ? toBase64(bytes) : null })
 }
 
 export async function deletePost(id: number): Promise<void> {
