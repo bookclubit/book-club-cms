@@ -175,7 +175,8 @@ export interface AnnounceEventPayload {
   call_url?: string
   notes_board_url?: string
   materials?: { title: string; url: string }[]
-  moderators?: { name: string }[]
+  /** speaker_id нужен боту: по нему он находит Telegram ведущего в каталоге. */
+  moderators?: { name: string; speaker_id?: string }[]
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -236,7 +237,12 @@ export function announcePayload(event: ClubEvent): AnnounceEventPayload {
       ? { notes_board_url: event.notes_board_url }
       : {}),
     ...(event.type === 'closed-chapter' && event.moderators
-      ? { moderators: event.moderators.map((m) => ({ name: m.name })) }
+      ? {
+          moderators: event.moderators.map((m) => ({
+            name: m.name,
+            ...(m.speaker_id ? { speaker_id: m.speaker_id } : {}),
+          })),
+        }
       : {}),
   }
 }
