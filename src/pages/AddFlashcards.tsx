@@ -19,6 +19,7 @@ interface CardDraft {
   type: 'qa' | 'command'
   front: string // question | command
   back: string // answer | result
+  example: string // необязательный пример к ответу
   chapter: string
   difficulty: FlashcardDifficulty
 }
@@ -27,6 +28,7 @@ const emptyCard = (): CardDraft => ({
   type: 'qa',
   front: '',
   back: '',
+  example: '',
   chapter: '1',
   difficulty: 'medium',
 })
@@ -79,12 +81,15 @@ export function AddFlashcards() {
     publish(async () => {
       const newCards: Flashcard[] = filled.map((c, i) => {
         const id = `${prefix}-${pad3(nextNumber + i)}`
+        // Пустой пример в файл не пишем: поле необязательное.
+        const example = c.example.trim() ? { example: c.example.trim() } : {}
         return c.type === 'qa'
           ? {
               id,
               type: 'qa',
               question: c.front.trim(),
               answer: c.back.trim(),
+              ...example,
               chapter: c.chapter.trim() || '1',
               difficulty: c.difficulty,
             }
@@ -93,6 +98,7 @@ export function AddFlashcards() {
               type: 'command',
               command: c.front.trim(),
               result: c.back.trim(),
+              ...example,
               chapter: c.chapter.trim() || '1',
               difficulty: c.difficulty,
             }
@@ -213,6 +219,22 @@ export function AddFlashcards() {
                 value={card.back}
                 onChange={(e) =>
                   setCards(cards.map((c, j) => (j === i ? { ...c, back: e.target.value } : c)))
+                }
+              />
+            </Field>
+            <Field
+              label="Пример (по желанию)"
+              hint={
+                card.type === 'qa'
+                  ? 'Короткий пример к ответу — покажется под ним в приложении и в боте'
+                  : 'Пример вызова или вывода команды'
+              }
+            >
+              <TextArea
+                rows={2}
+                value={card.example}
+                onChange={(e) =>
+                  setCards(cards.map((c, j) => (j === i ? { ...c, example: e.target.value } : c)))
                 }
               />
             </Field>

@@ -48,7 +48,9 @@ export function Flashcards() {
     }
   }, [gh, folder])
 
-  const dirty = original !== null && toJSON(cards) !== toJSON(original)
+  // Сравниваем то, что реально уйдёт в файл: набранный и стёртый пример
+  // не должен считаться правкой и открывать пустой pull request.
+  const dirty = original !== null && toJSON(forPublish(cards)) !== toJSON(original)
   const removedCount = original ? original.length - cards.length : 0
   const editedCount = original
     ? cards.filter((c) => {
@@ -61,6 +63,16 @@ export function Flashcards() {
     setCards((prev) =>
       prev.map((c) => (c.id === id ? ({ ...c, ...changes } as Flashcard) : c)),
     )
+  }
+
+  // Пустой пример из файла убираем совсем, а не пишем `example: ""`:
+  // поле необязательное, и пустая строка засоряла бы данные.
+  function forPublish(list: Flashcard[]): Flashcard[] {
+    return list.map((card) => {
+      if (card.example?.trim()) return { ...card, example: card.example.trim() }
+      const { example: _dropped, ...rest } = card
+      return rest as Flashcard
+    })
   }
 
   function submit() {
@@ -82,7 +94,10 @@ export function Flashcards() {
           .filter((line): line is string => line !== null)
           .join('\n'),
         files: [
-          { path: `books/${book.folder}/flashcards.json`, content: toJSON(cards) },
+          {
+            path: `books/${book.folder}/flashcards.json`,
+            content: toJSON(forPublish(cards)),
+          },
         ],
       }),
     )
@@ -209,6 +224,16 @@ export function Flashcards() {
                     </Field>
                   </>
                 )}
+                <Field
+                  label="Пример (по желанию)"
+                  hint="Показывается под ответом в приложении и в боте"
+                >
+                  <TextArea
+                    rows={2}
+                    value={card.example ?? ''}
+                    onChange={(e) => patch(card.id, { example: e.target.value })}
+                  />
+                </Field>
                 <Button
                   variant="danger"
                   onClick={() => {

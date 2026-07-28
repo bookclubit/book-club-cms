@@ -70,6 +70,8 @@ export interface FlashcardQA {
   answer: string
   chapter: string
   difficulty: FlashcardDifficulty
+  /** Пример к ответу — необязателен: показывается под ответом. */
+  example?: string
 }
 
 export interface FlashcardCommand {
@@ -79,6 +81,8 @@ export interface FlashcardCommand {
   result: string
   chapter: string
   difficulty: FlashcardDifficulty
+  /** Пример вывода или использования команды — необязателен. */
+  example?: string
 }
 
 export type Flashcard = FlashcardQA | FlashcardCommand
