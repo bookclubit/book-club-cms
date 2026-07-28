@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AuthorPicker } from '../components/AuthorPicker'
 import { ImagePicker } from '../components/ImagePicker'
 import { PublishPanel } from '../components/PublishPanel'
 import {
@@ -10,17 +11,32 @@ import {
   TextArea,
   TextInput,
 } from '../components/ui'
+import { newAuthorId } from '../lib/authors'
 import { AVATAR_OPTS, COVER_OPTS } from '../lib/image'
 import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
-import { loadSettings } from '../lib/repo'
+import { loadSettings, mediaUrl } from '../lib/repo'
 import { slugify } from '../lib/slug'
-import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } from '../types'
+import {
+  BOOK_CATEGORIES,
+  type BookCategory,
+  type BookMeta,
+  type BookStatus,
+  type IndexAuthor,
+} from '../types'
 
 interface AuthorDraft {
+  /** id из каталога — у автора, взятого из другой книги; у нового выводится из имени. */
+  id?: string
   name: string
   url?: string // ссылка на автора (сайт/профиль)
-  avatar: Uint8Array | null
+  avatar: Uint8Array | null // новая аватарка (у автора из каталога не нужна)
+  avatarPath?: string // готовая аватарка в репозитории (автор из каталога)
+}
+
+// id автора: у выбранного из каталога — его собственный, у нового — транслит имени.
+function draftId(author: AuthorDraft): string {
+  return author.id?.trim() || newAuthorId(author.name)
 }
 
 export function AddBook() {
@@ -51,6 +67,24 @@ export function AddBook() {
     if (!bookId || bookId === slugify(titleOriginal)) setBookId(slug)
   }
 
+  // Автор из каталога: подставляем id, имя, ссылку и готовую аватарку.
+  // Первая пустая строка занимается вместо добавления новой.
+  function pickAuthor(picked: IndexAuthor) {
+    const draft: AuthorDraft = {
+      id: picked.id,
+      name: picked.name,
+      ...(picked.url ? { url: picked.url } : {}),
+      avatar: null,
+      ...(picked.avatar ? { avatarPath: picked.avatar } : {}),
+    }
+    setAuthors((prev) => {
+      const empty = prev.findIndex((a) => !a.name.trim())
+      return empty === -1
+        ? [...prev, draft]
+        : prev.map((a, i) => (i === empty ? draft : a))
+    })
+  }
+
   const filledAuthors = authors.filter((a) => a.name.trim())
   const ready =
     Boolean(title.trim() && bookId.trim() && folder.trim() && description.trim()) &&
@@ -73,11 +107,14 @@ export function AddBook() {
         ...(titleOriginal.trim() ? { title_original: titleOriginal.trim() } : {}),
         ...(Number(edition) > 0 ? { edition: Number(edition) } : {}),
         authors: filledAuthors.map((a) => ({
+          id: draftId(a),
           name: a.name.trim(),
           ...(a.url?.trim() ? { url: a.url.trim() } : {}),
-          ...(a.avatar
-            ? { avatar: `/media/authors/${slugify(a.name)}.webp` }
-            : {}),
+          ...(a.avatarPath
+            ? { avatar: a.avatarPath }
+            : a.avatar
+              ? { avatar: `/media/authors/${draftId(a)}.webp` }
+              : {}),
         })),
         status,
         ...(category ? { category } : {}),
@@ -97,9 +134,10 @@ export function AddBook() {
         files.push({ path: `media/covers/${cleanId}.webp`, content: cover })
       }
       for (const author of filledAuthors) {
-        if (author.avatar) {
+        // Автор из каталога уже с аватаркой — заново её не загружаем.
+        if (author.avatar && !author.avatarPath) {
           files.push({
-            path: `media/authors/${slugify(author.name)}.webp`,
+            path: `media/authors/${draftId(author)}.webp`,
             content: author.avatar,
           })
         }
@@ -127,8 +165,11 @@ export function AddBook() {
           `- \`books/${cleanFolder}/meta.json\``,
           cover ? `- обложка \`media/covers/${cleanId}.webp\`` : null,
           ...filledAuthors
-            .filter((a) => a.avatar)
-            .map((a) => `- аватар автора \`media/authors/${slugify(a.name)}.webp\``),
+            .filter((a) => a.avatar && !a.avatarPath)
+            .map((a) => `- аватар автора \`media/authors/${draftId(a)}.webp\``),
+          ...filledAuthors
+            .filter((a) => a.avatarPath)
+            .map((a) => `- автор \`${draftId(a)}\` — из каталога, аватар уже в репозитории`),
           activeBookChanged
             ? `- \`settings.json\`: активная книга — \`${cleanFolder}\``
             : null,
@@ -261,13 +302,28 @@ export function AddBook() {
       </Card>
 
       <Card>
-        <p className="mb-4 text-sm font-medium">Авторы</p>
+        <p className="mb-1 text-sm font-medium">Авторы</p>
+        <p className="mb-3 text-xs text-ink-soft">
+          Если у автора уже есть книга в клубе — выберите его, чтобы книги собрались
+          на одной странице автора.
+        </p>
+        <div className="mb-5">
+          <AuthorPicker
+            authors={index?.authors ?? []}
+            usedIds={authors.map(draftId).filter(Boolean)}
+            onPick={pickAuthor}
+          />
+        </div>
+
         <div className="space-y-4">
           {authors.map((author, i) => (
             <div key={i} className="rounded-card border border-line p-4">
               <div className="mb-3 flex items-end gap-3">
                 <div className="grow">
-                  <Field label={`Автор ${i + 1}`}>
+                  <Field
+                    label={`Автор ${i + 1}`}
+                    hint={author.avatarPath ? `из каталога · id ${author.id}` : undefined}
+                  >
                     <TextInput
                       value={author.name}
                       onChange={(e) =>
@@ -295,13 +351,28 @@ export function AddBook() {
                   />
                 </Field>
               </div>
-              <ImagePicker
-                label="Аватар (опционально)"
-                opts={AVATAR_OPTS}
-                onChange={(bytes) =>
-                  setAuthors((prev) => prev.map((a, j) => (j === i ? { ...a, avatar: bytes } : a)))
-                }
-              />
+              {/* У автора из каталога аватарка уже в репозитории — только показываем. */}
+              {author.avatarPath ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={mediaUrl(author.avatarPath)}
+                    alt=""
+                    className="h-14 w-14 shrink-0 rounded-full border border-line object-cover"
+                  />
+                  <p className="text-xs text-ink-soft">
+                    Аватар из каталога — заменить его можно на странице той книги, где
+                    автор уже есть.
+                  </p>
+                </div>
+              ) : (
+                <ImagePicker
+                  label="Аватар (опционально)"
+                  opts={AVATAR_OPTS}
+                  onChange={(bytes) =>
+                    setAuthors((prev) => prev.map((a, j) => (j === i ? { ...a, avatar: bytes } : a)))
+                  }
+                />
+              )}
             </div>
           ))}
           <Button variant="ghost" onClick={() => setAuthors([...authors, { name: '', avatar: null }])}>

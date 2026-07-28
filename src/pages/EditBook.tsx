@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { AuthorPicker } from '../components/AuthorPicker'
 import { ImagePicker } from '../components/ImagePicker'
 import { PublishPanel } from '../components/PublishPanel'
 import {
@@ -13,18 +14,31 @@ import {
   TextArea,
   TextInput,
 } from '../components/ui'
+import { authorKey, newAuthorId } from '../lib/authors'
 import { AVATAR_OPTS, COVER_OPTS } from '../lib/image'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { loadBookMeta, loadSettings, mediaUrl } from '../lib/repo'
-import { slugify } from '../lib/slug'
-import { BOOK_CATEGORIES, type BookCategory, type BookMeta, type BookStatus } from '../types'
+import {
+  BOOK_CATEGORIES,
+  type BookCategory,
+  type BookMeta,
+  type BookStatus,
+  type IndexAuthor,
+} from '../types'
 
 interface AuthorEdit {
+  /** id автора: связывает его книги. У старых записей выводится из аватарки. */
+  id?: string
   name: string
   url?: string // ссылка на автора (сайт/профиль)
   avatarPath?: string // существующая аватарка в репозитории
   newAvatar: Uint8Array | null // замена (если выбрана)
+}
+
+// id автора: сохранённый, иначе транслит имени (у нового автора).
+function editId(author: AuthorEdit): string {
+  return author.id?.trim() || newAuthorId(author.name)
 }
 
 // Редактирование книги: meta.json + при необходимости обложка/аватарки/settings.json
@@ -66,9 +80,31 @@ export function EditBook() {
     setDescription(m.description)
     setTotalChapters(String(m.total_chapters))
     setAuthors(
-      m.authors.map((a) => ({ name: a.name, url: a.url, avatarPath: a.avatar, newAvatar: null })),
+      m.authors.map((a) => ({
+        // authorKey — чтобы у записи без id связь с его другими книгами не порвалась.
+        id: authorKey(a),
+        name: a.name,
+        url: a.url,
+        avatarPath: a.avatar,
+        newAvatar: null,
+      })),
     )
   }, [meta.data])
+
+  // Автор из каталога (у него уже есть книга в клубе): id, имя, ссылка и аватарка.
+  function pickAuthor(picked: IndexAuthor) {
+    const draft: AuthorEdit = {
+      id: picked.id,
+      name: picked.name,
+      ...(picked.url ? { url: picked.url } : {}),
+      ...(picked.avatar ? { avatarPath: picked.avatar } : {}),
+      newAvatar: null,
+    }
+    setAuthors((prev) => {
+      const empty = prev.findIndex((a) => !a.name.trim())
+      return empty === -1 ? [...prev, draft] : prev.map((a, i) => (i === empty ? draft : a))
+    })
+  }
 
   const filledAuthors = authors.filter((a) => a.name.trim())
   const ready =
@@ -89,12 +125,15 @@ export function EditBook() {
         ...(titleOriginal.trim() ? { title_original: titleOriginal.trim() } : {}),
         ...(Number(edition) > 0 ? { edition: Number(edition) } : {}),
         authors: filledAuthors.map((a) => ({
+          id: editId(a),
           name: a.name.trim(),
           ...(a.url?.trim() ? { url: a.url.trim() } : {}),
-          ...(a.newAvatar
-            ? { avatar: `/media/authors/${slugify(a.name)}.webp` }
-            : a.avatarPath
-              ? { avatar: a.avatarPath }
+          // Замена ложится по пути существующей аватарки — иначе у автора
+          // с двумя книгами в другой книге осталась бы старая картинка.
+          ...(a.avatarPath
+            ? { avatar: a.avatarPath }
+            : a.newAvatar
+              ? { avatar: `/media/authors/${editId(a)}.webp` }
               : {}),
         })),
         status,
@@ -117,7 +156,7 @@ export function EditBook() {
       for (const a of filledAuthors) {
         if (a.newAvatar) {
           files.push({
-            path: `media/authors/${slugify(a.name)}.webp`,
+            path: (a.avatarPath ?? `/media/authors/${editId(a)}.webp`).replace(/^\//, ''),
             content: a.newAvatar,
           })
         }
@@ -146,7 +185,10 @@ export function EditBook() {
           newCover ? `- заменена обложка \`${coverPath.replace(/^\//, '')}\`` : null,
           ...filledAuthors
             .filter((a) => a.newAvatar)
-            .map((a) => `- заменён аватар \`media/authors/${slugify(a.name)}.webp\``),
+            .map(
+              (a) =>
+                `- заменён аватар \`${(a.avatarPath ?? `/media/authors/${editId(a)}.webp`).replace(/^\//, '')}\``,
+            ),
           activeBookChanged ? `- \`settings.json\`: активная книга — \`${folder}\`` : null,
           '',
           '`index.json` пересоберётся автоматически после мержа.',
@@ -275,13 +317,25 @@ export function EditBook() {
       </Card>
 
       <Card>
-        <p className="mb-4 text-sm font-medium">Авторы</p>
+        <p className="mb-1 text-sm font-medium">Авторы</p>
+        <p className="mb-3 text-xs text-ink-soft">
+          У автора уже есть книга в клубе? Выберите его — книги соберутся на одной
+          странице автора.
+        </p>
+        <div className="mb-5">
+          <AuthorPicker
+            authors={index?.authors ?? []}
+            usedIds={authors.map(editId).filter(Boolean)}
+            onPick={pickAuthor}
+          />
+        </div>
+
         <div className="space-y-4">
           {authors.map((author, i) => (
             <div key={i} className="rounded-card border border-line p-4">
               <div className="mb-3 flex items-end gap-3">
                 <div className="grow">
-                  <Field label={`Автор ${i + 1}`}>
+                  <Field label={`Автор ${i + 1}`} hint={author.id ? `id ${author.id}` : undefined}>
                     <TextInput
                       value={author.name}
                       onChange={(e) =>

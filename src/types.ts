@@ -2,6 +2,12 @@
 // (books/<folder>/meta.json, chapter.json, events/*.json, flashcards.json).
 
 export interface Author {
+  /**
+   * Стабильный kebab-case id: связывает книги одного автора (в miniapp — его
+   * страница со всеми книгами). У старых записей может отсутствовать — тогда
+   * ключ выводится из аватарки или имени (`authorKey` в lib/authors.ts).
+   */
+  id?: string
   name: string
   avatar?: string
   /** Ссылка на автора (сайт/профиль) — показывается в презентациях talks. */
@@ -224,10 +230,23 @@ export interface IndexSpeaker {
   socials?: Partial<Record<SpeakerSocial, string>>
 }
 
+// Автор в реестре: генератор собирает его из авторов книг (meta.json), `books` —
+// папки его книг. Из этого списка формы книги предлагают выбрать существующего
+// автора, чтобы у человека с двумя книгами не разъехались id, имя и аватар.
+// Необязателен: реестр мог быть собран до появления поля.
+export interface IndexAuthor {
+  id: string
+  name: string
+  avatar?: string
+  url?: string
+  books: string[]
+}
+
 export interface ContentIndex {
   version: number
   active_book: string
   books: IndexBook[]
+  authors?: IndexAuthor[]
   events: string[]
   speakers: IndexSpeaker[]
 }
