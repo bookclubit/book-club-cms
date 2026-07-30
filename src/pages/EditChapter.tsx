@@ -10,12 +10,11 @@ import {
   Loading,
   Mono,
   PageHeader,
-  TextArea,
   TextInput,
 } from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON } from '../lib/pr'
-import { loadChapter, toBulletList } from '../lib/repo'
+import { loadChapter } from '../lib/repo'
 import type { Chapter, Topic } from '../types'
 
 // Редактирование главы вместе с темами: всё лежит в одном chapter.json.
@@ -31,16 +30,12 @@ export function EditChapter() {
   const book = index?.books.find((b) => b.folder === folder)
 
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [outcome, setOutcome] = useState('')
   const [topics, setTopics] = useState<Topic[]>([])
 
   useEffect(() => {
     const ch = chapter.data
     if (!ch) return
     setTitle(ch.title)
-    setDescription(ch.description)
-    setOutcome(ch.learning_outcome)
     // Файлы, написанные руками, могут не иметь новых полей — добираем пустыми.
     setTopics(
       ch.topics.map((t) => ({
@@ -55,7 +50,7 @@ export function EditChapter() {
     )
   }, [chapter.data])
 
-  const ready = Boolean(chapter.data && title.trim() && description.trim() && outcome.trim())
+  const ready = Boolean(chapter.data && title.trim())
 
   function submit() {
     const current = chapter.data
@@ -64,8 +59,6 @@ export function EditChapter() {
       const next: Chapter = {
         order: current.order,
         title: title.trim(),
-        description: description.trim(),
-        learning_outcome: toBulletList(outcome),
         topics: topics
           .filter((t) => t.title.trim())
           .map((t) => ({
@@ -129,12 +122,6 @@ export function EditChapter() {
         <div className="space-y-4">
           <Field label="Название главы">
             <TextInput value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Field>
-          <Field label="Описание">
-            <TextArea value={description} onChange={(e) => setDescription(e.target.value)} />
-          </Field>
-          <Field label="Чему научишься" hint="по пункту на строку — покажется списком">
-            <TextArea value={outcome} onChange={(e) => setOutcome(e.target.value)} />
           </Field>
         </div>
       </Card>

@@ -1,18 +1,9 @@
 import { useMemo, useState } from 'react'
 import { PublishPanel } from '../components/PublishPanel'
 import { TopicsEditor } from '../components/TopicsEditor'
-import {
-  Card,
-  CardTitle,
-  Field,
-  PageHeader,
-  Select,
-  TextArea,
-  TextInput,
-} from '../components/ui'
+import { Card, CardTitle, Field, PageHeader, Select, TextInput } from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
-import { toBulletList } from '../lib/repo'
 import { pad2, slugify } from '../lib/slug'
 import type { Chapter, Topic } from '../types'
 
@@ -25,8 +16,6 @@ export function AddChapter() {
 
   const [folder, setFolder] = useState('')
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [outcome, setOutcome] = useState('')
   const [topics, setTopics] = useState<Topic[]>([])
 
   const book = index?.books.find((b) => b.folder === folder)
@@ -56,9 +45,7 @@ export function AddChapter() {
   const slugTaken = existingChapters.includes(chapterSlug)
 
   const filledTopics = topics.filter((t) => t.title.trim())
-  const ready = Boolean(
-    book && title.trim() && description.trim() && outcome.trim() && !chapterDirs.loading,
-  )
+  const ready = Boolean(book && title.trim() && !chapterDirs.loading)
 
   function submit() {
     if (!book) return
@@ -66,8 +53,6 @@ export function AddChapter() {
       const chapter: Chapter = {
         order,
         title: title.trim(),
-        description: description.trim(),
-        learning_outcome: toBulletList(outcome),
         topics: filledTopics.map((t) => ({ ...t, title: t.title.trim() })),
       }
 
@@ -146,21 +131,6 @@ export function AddChapter() {
               placeholder="Введение в Docker"
             />
           </Field>
-
-          <Field label="Описание">
-            <TextArea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="О чём глава"
-            />
-          </Field>
-          <Field label="Чему научишься" hint="по пункту на строку — покажется списком">
-            <TextArea
-              value={outcome}
-              onChange={(e) => setOutcome(e.target.value)}
-              placeholder={'Поймёшь, как…\nУзнаешь, что…\nНаучишься…'}
-            />
-          </Field>
         </div>
       </Card>
 
@@ -183,7 +153,7 @@ export function AddChapter() {
         onReset={reset}
         disabled={!ready || slugTaken}
         disabledReason={
-          slugTaken ? 'Смените номер или название' : 'Выберите книгу и заполните поля главы'
+          slugTaken ? 'Смените номер или название' : 'Выберите книгу и введите название главы'
         }
       />
     </div>
