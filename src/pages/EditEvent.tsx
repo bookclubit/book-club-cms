@@ -371,9 +371,14 @@ export function EditEvent() {
         // Программа вечера — для слайдов «Программа вечера» и «Что далее».
         program: programSnapshot(),
       })
-      await setClaimSlides(topicId, url)
+      const { notified } = await setClaimSlides(topicId, url)
       await loadClaims()
-      setGenMsg(`Запущена генерация. PR появится в book-club-talks, слайды: ${url}`)
+      setGenMsg(
+        `Запущена генерация. PR появится в book-club-talks, слайды: ${url}` +
+          (notified
+            ? ' Спикеру ушла инструкция в Telegram.'
+            : ' Спикеру бот написать не смог — Telegram неизвестен (укажите его в карточке спикера или попросите написать боту). Сообщите о презентации сами.'),
+      )
     } catch (e) {
       setGenMsg(e instanceof Error ? e.message : String(e))
     } finally {

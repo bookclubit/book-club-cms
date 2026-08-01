@@ -67,12 +67,13 @@ export async function decideClaim(id: number, action: 'confirm' | 'decline'): Pr
   })
 }
 
-async function claimAction(body: Record<string, unknown>): Promise<void> {
-  await adminFetch('/api/admin/claims', {
+async function claimAction<T = unknown>(body: Record<string, unknown>): Promise<T> {
+  const res = await adminFetch('/api/admin/claims', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  return (await res.json()) as T
 }
 
 // Единый источник занятости — D1. CMS назначает/освобождает темы теми же
@@ -103,9 +104,21 @@ export async function releaseClaim(topicId: string): Promise<void> {
   await claimAction({ action: 'release', topic_id: topicId })
 }
 
-/** Проставить ссылку на презентацию у темы. */
-export async function setClaimSlides(topicId: string, slidesUrl: string): Promise<void> {
-  await claimAction({ action: 'slides', topic_id: topicId, slides_url: slidesUrl })
+/**
+ * Проставить ссылку на презентацию у темы. Бот пишет спикеру инструкцию;
+ * `notified: false` — Telegram спикера боту неизвестен (ни разу ему не писал
+ * и не входил в приложение), сообщить придётся вручную.
+ */
+export async function setClaimSlides(
+  topicId: string,
+  slidesUrl: string,
+): Promise<{ notified: boolean }> {
+  const res = await claimAction<{ notified?: boolean }>({
+    action: 'slides',
+    topic_id: topicId,
+    slides_url: slidesUrl,
+  })
+  return { notified: res.notified !== false }
 }
 
 /** Фото спикера из Telegram (JPEG) — для конвертации в WebP при оформлении. */
