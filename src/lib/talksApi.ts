@@ -4,6 +4,7 @@
 
 import type { SpeakerClaim } from './botApi'
 import { listSpeakerClaims, setClaimSlides } from './botApi'
+import { eventProgram } from './events'
 import { GitHubClient } from './github'
 import { loadBookMeta, loadChapter } from './repo'
 import type { ContentIndex, LiveTalkEvent } from '../types'
@@ -89,7 +90,11 @@ async function findStream(
 ): Promise<number | null> {
   for (const path of index.events.filter((p) => p.startsWith('live-talks/'))) {
     const ev = await gh.getFileJson<LiveTalkEvent>(`events/${path}`)
-    if (ev?.book_id === bookId && ev.chapter === chapter && ev.stream) return ev.stream
+    if (!ev?.stream) continue
+    // Программа блоками: глава заявки может быть любым блоком эфира.
+    if (eventProgram(ev).some((b) => b.book_id === bookId && b.chapter === chapter)) {
+      return ev.stream
+    }
   }
   return null
 }

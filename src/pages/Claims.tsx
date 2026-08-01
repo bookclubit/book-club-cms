@@ -11,7 +11,7 @@ import {
   type SpeakerClaim,
 } from '../lib/botApi'
 import { useDataClient, useIndex, useLoad } from '../lib/hooks'
-import { eventArchived } from '../lib/events'
+import { eventArchived, eventProgram } from '../lib/events'
 import { mediaUrl } from '../lib/repo'
 import type { ClubEvent } from '../types'
 import { cleanupTalkForClaim, generateTalkForClaim } from '../lib/talksApi'
@@ -49,12 +49,15 @@ export function Claims() {
         .filter((p) => p.startsWith('live-talks/'))
         .map(async (path) => {
           const ev = await gh.getFileJson<ClubEvent>(`events/${path}`)
-          if (!ev || ev.type !== 'live-talk' || !ev.book_id || !ev.chapter) return
+          if (!ev || ev.type !== 'live-talk') return
           const file = path.slice(path.indexOf('/') + 1)
-          map[`${ev.book_id}:${ev.chapter}`] = {
-            stream: ev.stream ?? null,
-            date: file.slice(0, 10),
-            archived: eventArchived(ev),
+          // Программа блоками: заявка может относиться к любой её главе.
+          for (const block of eventProgram(ev)) {
+            map[`${block.book_id}:${block.chapter}`] = {
+              stream: ev.stream ?? null,
+              date: file.slice(0, 10),
+              archived: eventArchived(ev),
+            }
           }
         }),
     )

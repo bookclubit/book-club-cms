@@ -9,7 +9,7 @@ import {
 import { PublishPanel } from '../components/PublishPanel'
 import { ErrorBox, Field, PageHeader, Select, SuccessBox } from '../components/ui'
 import { announceEvent, announcePayload } from '../lib/botApi'
-import { useChapterTopics, useDataClient, useIndex, usePublish } from '../lib/hooks'
+import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
 import { slugify } from '../lib/slug'
 
@@ -26,14 +26,6 @@ export function AddEvent() {
 
   const book = index?.books.find((b) => b.folder === form.folder)
   const slug = slugify(form.title)
-
-  // Темы выбранной главы — для выбора тем этой встречи (при делении главы).
-  const { topics, loading: topicsLoading } = useChapterTopics(
-    gh,
-    form.folder,
-    form.chapterSlug,
-    kind === 'live-talk',
-  )
 
   const ready = isEventFormReady(kind, form, book)
 
@@ -103,8 +95,6 @@ export function AddEvent() {
         kind={kind}
         form={form}
         index={index}
-        topics={topics}
-        topicsLoading={topicsLoading}
         kindSelector={
           <Field label="Тип встречи">
             <Select value={kind} onChange={(e) => setKind(e.target.value as EventKind)}>

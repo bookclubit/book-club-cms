@@ -15,9 +15,8 @@ import type {
   EventRecordings,
   IndexBook,
   LiveTalkEvent,
-  Topic,
 } from '../types'
-import { EventTopicsPicker } from './EventTopicsPicker'
+import { emptyProgramBlock, ProgramEditor, type ProgramFormBlock } from './ProgramEditor'
 import { ImagePicker } from './ImagePicker'
 import { PosterPicker } from './PosterPicker'
 import { ModeratorPicker } from './ModeratorPicker'
@@ -49,12 +48,12 @@ export function useEventFormState() {
   const [boardFile, setBoardFile] = useState<Uint8Array | null>(null)
   const [moderatorIds, setModeratorIds] = useState<string[]>([])
 
-  // live-talk (книга/глава программы — общие с closed-chapter: folder/chapterSlug)
+  // live-talk
   const [youtube, setYoutube] = useState('')
   const [vk, setVk] = useState('')
   const [stream, setStream] = useState('')
-  // Темы именно этой встречи (при делении главы на несколько эфиров).
-  const [topicIds, setTopicIds] = useState<string[]>([])
+  // Программа эфира блоками: за вечер бывает несколько глав и даже книг.
+  const [blocks, setBlocks] = useState<ProgramFormBlock[]>([emptyProgramBlock()])
   // Edit-only: монтажные ролики докладов (id темы → ссылки).
   const [recordings, setRecordings] = useState<EventRecordings>({})
 
@@ -80,7 +79,7 @@ export function useEventFormState() {
     youtube, setYoutube,
     vk, setVk,
     stream, setStream,
-    topicIds, setTopicIds,
+    blocks, setBlocks,
     recordings, setRecordings,
     finished, setFinished,
   }
@@ -162,10 +161,21 @@ export function buildEventFiles(opts: {
     return { event, extraFiles }
   }
 
+  // Программа эфира: блоки формы (книга папкой) → блоки события (книга id).
+  const program = form.blocks
+    .filter((b) => b.folder && b.chapterSlug)
+    .map((b) => ({
+      book_id: index.books.find((x) => x.folder === b.folder)?.id ?? b.folder,
+      chapter: b.chapterSlug,
+      ...(b.topicIds.length > 0 ? { topic_ids: b.topicIds } : {}),
+    }))
+  // Темы встречи — из всех блоков: по ним чистим монтажные ролики.
+  const programTopicIds = form.blocks.flatMap((b) => b.topicIds)
+
   // Монтажные ролики: только непустые ссылки и только по темам встречи.
   const cleanRecordings: EventRecordings = {}
   for (const [topicId, rec] of Object.entries(form.recordings)) {
-    if (form.topicIds.length > 0 && !form.topicIds.includes(topicId)) continue
+    if (programTopicIds.length > 0 && !programTopicIds.includes(topicId)) continue
     const yt = rec.youtube?.trim()
     const v = rec.vk?.trim()
     if (yt || v) {
@@ -182,11 +192,17 @@ export function buildEventFiles(opts: {
     streams,
     // Занятость тем живёт в заявках D1 (единый источник), не в event.talks.
     talks: [],
-    // Программа докладов: из этой главы бот предлагает темы спикерам.
-    ...(book ? { book_id: book.id } : {}),
-    ...(form.chapterSlug ? { chapter: form.chapterSlug } : {}),
-    // Темы именно этой встречи (если главу делят на несколько эфиров).
-    ...(form.topicIds.length > 0 ? { topic_ids: form.topicIds } : {}),
+    // Программа эфира блоками: из неё бот предлагает темы спикерам.
+    ...(program.length > 0 ? { program } : {}),
+    // Первый блок дублируем полями события: по ним встречу находят читатели,
+    // которые ещё не знают про program (и старые файлы выглядят так же).
+    ...(program[0]
+      ? {
+          book_id: program[0].book_id,
+          chapter: program[0].chapter,
+          ...(program[0].topic_ids ? { topic_ids: program[0].topic_ids } : {}),
+        }
+      : {}),
     ...(Object.keys(cleanRecordings).length > 0 ? { recordings: cleanRecordings } : {}),
     ...(Number(form.stream) > 0 ? { stream: Number(form.stream) } : {}),
     ...common,
@@ -198,12 +214,10 @@ interface EventFormFieldsProps {
   kind: EventKind
   form: EventFormState
   index: ContentIndex | null
-  topics: Topic[] | null
-  topicsLoading: boolean
   /** Слот в начале первой карточки — AddEvent показывает здесь селектор типа. */
   kindSelector?: ReactNode
   titlePlaceholder?: string
-  /** Edit-блоки после карточки «Темы этой встречи» (заявки D1, монтажные ролики). */
+  /** Edit-блоки после программы эфира (заявки D1, монтажные ролики). */
   liveTalkExtra?: ReactNode
 }
 
@@ -212,8 +226,6 @@ export function EventFormFields({
   kind,
   form,
   index,
-  topics,
-  topicsLoading,
   kindSelector,
   titlePlaceholder,
   liveTalkExtra,
@@ -378,66 +390,14 @@ export function EventFormFields({
       {kind === 'live-talk' && (
         <>
           <Card>
-            <div className="space-y-4">
-              <p className="text-sm font-medium">Программа докладов</p>
-              <p className="text-xs text-ink-soft">
-                Регистрация на встречу и заявки спикеров идут через бота — отдельная
-                ссылка не нужна.
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Книга" hint="из глав этой книги бот предложит темы спикерам">
-                  <Select
-                    value={form.folder}
-                    onChange={(e) => {
-                      form.setFolder(e.target.value)
-                      form.setChapterSlug('')
-                      form.setTopicIds([])
-                      form.setRecordings({})
-                    }}
-                  >
-                    <option value="">— не привязывать —</option>
-                    {index?.books.map((b) => (
-                      <option key={b.folder} value={b.folder}>
-                        {b.title}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Глава">
-                  <Select
-                    value={form.chapterSlug}
-                    onChange={(e) => {
-                      form.setChapterSlug(e.target.value)
-                      form.setTopicIds([])
-                      form.setRecordings({})
-                    }}
-                    disabled={!book}
-                  >
-                    <option value="">— выберите —</option>
-                    {book?.chapters.map((ch) => (
-                      <option key={ch.slug} value={ch.slug}>
-                        {ch.order}. {ch.title}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-            </div>
-          </Card>
-          <Card>
-            <p className="mb-1 text-sm font-medium">Темы этой встречи</p>
+            <CardTitle hint="Регистрация на встречу и заявки спикеров идут через бота — отдельная ссылка не нужна">
+              Программа эфира
+            </CardTitle>
             <p className="mb-4 text-xs text-ink-soft">
-              Отметьте темы, если главу делят на несколько эфиров — встреча покажет
-              только их. Оставьте пустым, если разбираете всю главу. Спикеров на темы
-              назначают через бота или на странице редактирования встречи.
+              Глав может быть несколько — и даже из разных книг. Внутри блока
+              отметьте темы, если главу делят между эфирами; пусто — вся глава.
             </p>
-            <EventTopicsPicker
-              chapterSelected={Boolean(book && form.chapterSlug)}
-              loading={topicsLoading}
-              topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
-              selected={form.topicIds}
-              onChange={form.setTopicIds}
-            />
+            <ProgramEditor index={index} blocks={form.blocks} onChange={form.setBlocks} />
           </Card>
           {liveTalkExtra}
         </>

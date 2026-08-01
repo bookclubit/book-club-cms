@@ -169,6 +169,9 @@ export interface AnnounceEventPayload {
   stream?: number
   book_id?: string
   chapter?: string
+  topic_ids?: string[]
+  /** Программа эфира блоками — по ней бот строит задание и список тем. */
+  program?: { book_id: string; chapter: string; topic_ids?: string[] }[]
   assignment?: string
   pages?: { from: number; to: number }
   streams?: { youtube?: string; vk?: string }
@@ -228,6 +231,13 @@ export function announcePayload(event: ClubEvent): AnnounceEventPayload {
     ...(event.stream ? { stream: event.stream } : {}),
     ...(event.book_id ? { book_id: event.book_id } : {}),
     ...(event.chapter ? { chapter: event.chapter } : {}),
+    // Программа эфира целиком: за вечер бывает несколько глав и книг.
+    ...(event.type === 'live-talk' && event.program?.length
+      ? { program: event.program }
+      : {}),
+    ...(event.type === 'live-talk' && event.topic_ids?.length
+      ? { topic_ids: event.topic_ids }
+      : {}),
     ...(event.assignment ? { assignment: event.assignment } : {}),
     ...(event.streams ? { streams: event.streams } : {}),
     ...(event.call_url ? { call_url: event.call_url } : {}),

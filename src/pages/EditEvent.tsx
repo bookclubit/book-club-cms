@@ -6,6 +6,7 @@ import {
   isEventFormReady,
   useEventFormState,
 } from '../components/EventForm'
+import { emptyProgramBlock } from '../components/ProgramEditor'
 import { EventTopicClaims } from '../components/EventTopicClaims'
 import { PublishPanel } from '../components/PublishPanel'
 import { Card, ErrorBox, Field, Mono, PageHeader, SuccessBox, TextInput } from '../components/ui'
@@ -20,10 +21,11 @@ import {
   setClaimSlides,
   type SpeakerClaim,
 } from '../lib/botApi'
-import { useChapterTopics, useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
+import { eventProgram } from '../lib/events'
+import { useDataClient, useIndex, useLoad, useProgramTopics, usePublish } from '../lib/hooks'
 import { materialsToText } from '../lib/materials'
 import { commitToPR, openContentPR, toJSON, type FileChange } from '../lib/pr'
-import { loadBookMeta, loadChapter } from '../lib/repo'
+import { loadBookMeta } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import {
   acceptTalkForSlides,
@@ -108,7 +110,13 @@ export function EditEvent() {
           : '',
       )
       form.setChapterSlug(ev.chapter ?? '')
-      form.setTopicIds(ev.topic_ids ?? [])
+      // Программа блоками: книга в событии — id, в форме — папка.
+      const blocks = eventProgram(ev).map((b) => ({
+        folder: index.books.find((x) => x.id === b.book_id || x.folder === b.book_id)?.folder ?? '',
+        chapterSlug: b.chapter,
+        topicIds: b.topic_ids ?? [],
+      }))
+      form.setBlocks(blocks.length > 0 ? blocks : [emptyProgramBlock()])
       form.setRecordings(ev.recordings ?? {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,24 +124,31 @@ export function EditEvent() {
 
   const book = index?.books.find((b) => b.folder === form.folder)
 
-  // Темы выбранной главы — слоты докладов.
-  const { topics, loading: topicsLoading } = useChapterTopics(
+  // Темы всей программы эфира — слоты докладов (глав может быть несколько).
+  const { topics, loading: topicsLoading } = useProgramTopics(
     gh,
-    form.folder,
-    form.chapterSlug,
+    form.blocks,
     kind === 'live-talk',
   )
 
-  // Заявки этой встречи из D1 (единый источник занятости) — по книге и главе.
+  // Пары «книга (id) + глава» программы — по ним отбираем заявки встречи.
+  const programKeys = form.blocks
+    .filter((b) => b.folder && b.chapterSlug)
+    .map((b) => `${index?.books.find((x) => x.folder === b.folder)?.id ?? b.folder}:${b.chapterSlug}`)
+  const programKey = programKeys.join(';')
+
+  // Заявки этой встречи из D1 (единый источник занятости) — по всем её главам.
   const loadClaims = useCallback(async () => {
-    if (kind !== 'live-talk' || !book || !form.chapterSlug || !getBotToken()) return
+    if (kind !== 'live-talk' || programKeys.length === 0 || !getBotToken()) return
     try {
       const all = await listSpeakerClaims()
-      setClaims(all.filter((c) => c.book_id === book.id && c.chapter === form.chapterSlug))
+      const keys = new Set(programKeys)
+      setClaims(all.filter((c) => keys.has(`${c.book_id}:${c.chapter}`)))
     } catch (e) {
       setClaimsMsg(e instanceof Error ? e.message : String(e))
     }
-  }, [kind, book, form.chapterSlug])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, programKey])
 
   useEffect(() => {
     void loadClaims()
@@ -158,10 +173,9 @@ export function EditEvent() {
     }
   }, [claims])
 
-  // Темы этой встречи для монтажных ссылок: выбранные (topic_ids) или вся глава.
-  const meetingTopics = (topics ?? []).filter(
-    (t) => form.topicIds.length === 0 || form.topicIds.includes(t.id),
-  )
+  // Темы этой встречи для монтажных ссылок: их уже отобрала программа
+  // (у блока может быть свой набор тем главы).
+  const meetingTopics = topics ?? []
 
   function setRecording(topicId: string, field: 'youtube' | 'vk', value: string) {
     form.setRecordings((prev) => ({
@@ -236,7 +250,10 @@ export function EditEvent() {
 
   // Назначить спикера каталога на тему — создаёт заявку в D1 (единый источник).
   async function handleAssign(topicId: string, topicTitle: string, speakerId: string) {
-    if (!book || !form.chapterSlug) return
+    // Книга и глава — той темы, которую назначают: в программе их несколько.
+    const topic = topics?.find((t) => t.id === topicId)
+    const topicBook = index?.books.find((b) => b.folder === topic?.folder)
+    if (!topic || !topicBook) return
     const speaker = index?.speakers.find((s) => s.id === speakerId)
     if (!speaker) return
     setClaimsMsg(null)
@@ -245,8 +262,8 @@ export function EditEvent() {
       await assignClaim({
         topicId,
         topicTitle,
-        bookId: book.id,
-        chapter: form.chapterSlug,
+        bookId: topicBook.id,
+        chapter: topic.chapterSlug,
         speakerId: speaker.id,
         speakerName: speaker.name,
       })
@@ -277,28 +294,26 @@ export function EditEvent() {
     const topic = topics?.find((t) => t.id === topicId)
     const claim = claimByTopic.get(topicId)
     setGenMsg(null)
-    if (!book) return setGenMsg('Сначала выберите книгу')
-    if (!form.chapterSlug) return setGenMsg('Выберите главу')
-    if (!topic) return setGenMsg('Презентацию можно сгенерировать только для темы из плана главы')
+    if (!topic) return setGenMsg('Презентацию можно сгенерировать только для темы из программы')
     if (!claim?.speaker_id) return setGenMsg('У темы нет каталожного спикера')
     if (!(Number(form.stream) > 0)) return setGenMsg('Укажите номер стрима')
 
     setGenId(topicId)
     try {
-      const meta = await loadBookMeta(gh, book.folder)
+      // Книга и глава — той темы, по которой делают доклад (в программе их
+      // несколько), поэтому и код книги, и номер главы берём у неё.
+      const meta = await loadBookMeta(gh, topic.folder)
       if (!meta?.code) throw new Error('У книги нет кода (задайте в форме книги: DOCKER, REACT…)')
-      const chapter = await loadChapter(gh, book.folder, form.chapterSlug)
-      if (!chapter) throw new Error('Глава не найдена в book-club-data')
 
       const url = slidesUrl({
         stream: Number(form.stream),
         code: meta.code,
-        chapterOrder: chapter.order,
+        chapterOrder: topic.chapterOrder,
         speakerId: claim.speaker_id,
       })
       await dispatchNewTalk(getToken() ?? '', {
-        book: book.folder,
-        chapter: form.chapterSlug,
+        book: topic.folder,
+        chapter: topic.chapterSlug,
         topic: topic.title,
         speaker: claim.speaker_id,
         stream: Number(form.stream),
@@ -475,8 +490,6 @@ export function EditEvent() {
         kind={kind}
         form={form}
         index={index}
-        topics={topics}
-        topicsLoading={topicsLoading}
         liveTalkExtra={liveTalkExtra}
       />
 

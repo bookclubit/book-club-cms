@@ -116,6 +116,72 @@ export function useChapterTopics(
   return { topics, loading }
 }
 
+/** Тема программы эфира вместе с главой, из которой она взята. */
+export interface ProgramTopic extends Topic {
+  folder: string
+  chapterSlug: string
+  chapterOrder: number
+  chapterTitle: string
+}
+
+/**
+ * Темы всей программы эфира — по всем её блокам (глава книги + выбранные темы).
+ * Порядок сохраняется: это порядок вечера. Загрузка перезапускается при любой
+ * правке программы, поэтому ключом зависимости служит её текстовый слепок.
+ */
+export function useProgramTopics(
+  gh: GitHubClient,
+  blocks: { folder: string; chapterSlug: string; topicIds: string[] }[],
+  enabled: boolean,
+): { topics: ProgramTopic[] | null; loading: boolean } {
+  const [topics, setTopics] = useState<ProgramTopic[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const key = blocks.map((b) => `${b.folder}/${b.chapterSlug}:${b.topicIds.join('|')}`).join(';')
+
+  useEffect(() => {
+    const ready = blocks.filter((b) => b.folder && b.chapterSlug)
+    if (!enabled || ready.length === 0) {
+      setTopics(null)
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    Promise.all(
+      ready.map(async (block) => {
+        const chapter = await loadChapter(gh, block.folder, block.chapterSlug).catch(() => null)
+        if (!chapter) return []
+        const picked =
+          block.topicIds.length > 0
+            ? chapter.topics.filter((t) => block.topicIds.includes(t.id))
+            : chapter.topics
+        return picked.map((t) => ({
+          ...t,
+          folder: block.folder,
+          chapterSlug: block.chapterSlug,
+          chapterOrder: chapter.order,
+          chapterTitle: chapter.title,
+        }))
+      }),
+    )
+      .then((lists) => {
+        if (!cancelled) setTopics(lists.flat())
+      })
+      .catch(() => {
+        if (!cancelled) setTopics([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gh, key, enabled])
+
+  return { topics, loading }
+}
+
 export type PublishState =
   | { phase: 'idle' }
   | { phase: 'working' }
