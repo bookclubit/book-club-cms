@@ -20,6 +20,18 @@ export function talksClient(token: string): GitHubClient {
   return new GitHubClient(token, TALKS_OWNER, TALKS_REPO)
 }
 
+/**
+ * Тема вечера для слайдов «Программа вечера» и «Что далее»: спикеров знает
+ * только D1 бота, а ссылки на соседние доклады — CMS, поэтому генератор
+ * получает готовый снимок программы, а не собирает её из book-club-data.
+ */
+export interface ProgramSnapshotTopic {
+  title: string
+  topic_id: string
+  speaker?: { name: string; avatar?: string }
+  slides_url?: string
+}
+
 export interface NewTalkPayload {
   book: string // folder или id книги в book-club-data
   chapter: string // slug главы или её номер
@@ -27,6 +39,8 @@ export interface NewTalkPayload {
   speaker: string // id спикера
   stream: number // номер стрима
   seq?: string // порядковый (если у спикера в стриме несколько докладов)
+  /** Программа вечера в порядке вечера — для «хром»-слайдов. */
+  program?: ProgramSnapshotTopic[]
 }
 
 /** Запускает генерацию доклада и открытие PR в book-club-talks. */
@@ -35,7 +49,20 @@ export async function dispatchNewTalk(token: string, payload: NewTalkPayload): P
     ...payload,
     stream: String(payload.stream),
     seq: payload.seq ?? '',
+    ...(payload.program?.length ? { program: payload.program } : {}),
   })
+}
+
+/**
+ * Пересобирает «хром»-слайды всех докладов вечера по свежей программе:
+ * подтвердили или заменили спикера, появились ссылки на соседние доклады.
+ * Папки докладов workflow вычисляет из `slides_url`, поэтому список не нужен.
+ */
+export async function dispatchRebuildTalks(
+  token: string,
+  program: ProgramSnapshotTopic[],
+): Promise<void> {
+  await talksClient(token).repositoryDispatch('rebuild-talks', { program })
 }
 
 /**

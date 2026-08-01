@@ -9,7 +9,7 @@ import {
 import { emptyProgramBlock } from '../components/ProgramEditor'
 import { EventTopicClaims } from '../components/EventTopicClaims'
 import { PublishPanel } from '../components/PublishPanel'
-import { Card, ErrorBox, Field, Mono, PageHeader, SuccessBox, TextInput } from '../components/ui'
+import { Button, Card, ErrorBox, Field, Mono, PageHeader, SuccessBox, TextInput } from '../components/ui'
 import { getToken } from '../lib/auth'
 import {
   announceEvent,
@@ -30,8 +30,10 @@ import { slugify } from '../lib/slug'
 import {
   acceptTalkForSlides,
   dispatchNewTalk,
+  dispatchRebuildTalks,
   fetchAcceptedSlides,
   slidesUrl,
+  type ProgramSnapshotTopic,
 } from '../lib/talksApi'
 import type { ClubEvent } from '../types'
 
@@ -79,6 +81,7 @@ export function EditEvent() {
   const [genId, setGenId] = useState<string | null>(null)
   const [genMsg, setGenMsg] = useState<string | null>(null)
   const [acceptId, setAcceptId] = useState<string | null>(null)
+  const [rebuilding, setRebuilding] = useState(false)
   // Принятые презентации (slides_url, чьи PR смержены в talks) — для статуса
   // «принята» вместо кнопки. Дополняется локально сразу после мержа,
   // т.к. raw-проверка отстаёт на кэш (~5 минут).
@@ -289,6 +292,54 @@ export function EditEvent() {
     }
   }
 
+  /**
+   * Программа вечера для слайдов: темы в порядке вечера со спикером и ссылкой
+   * на доклад. Спикеров и ссылки знает только D1 (заявки), поэтому генератору
+   * они уходят снимком — из book-club-data их не собрать.
+   */
+  function programSnapshot(): ProgramSnapshotTopic[] {
+    return (topics ?? []).map((t) => {
+      const claim = claimByTopic.get(t.id)
+      const speaker = claim
+        ? index?.speakers.find((s) => s.id === claim.speaker_id)
+        : undefined
+      return {
+        title: t.title,
+        topic_id: t.id,
+        ...(claim
+          ? {
+              speaker: {
+                // Имя из каталога точнее того, что человек ввёл в заявке.
+                name: speaker?.name ?? claim.full_name ?? `@${claim.username ?? ''}`,
+                ...(speaker?.avatar ? { avatar: speaker.avatar } : {}),
+              },
+            }
+          : {}),
+        ...(claim?.slides_url ? { slides_url: claim.slides_url } : {}),
+      }
+    })
+  }
+
+  // Пересборка «хром»-слайдов всех докладов вечера по свежей программе.
+  async function rebuildTalks() {
+    setGenMsg(null)
+    const program = programSnapshot()
+    if (program.every((t) => !t.slides_url)) {
+      return setGenMsg('Ни у одной темы нет презентации — пересобирать нечего')
+    }
+    setRebuilding(true)
+    try {
+      await dispatchRebuildTalks(getToken() ?? '', program)
+      setGenMsg(
+        'Запущена пересборка слайдов вечера. Доклады, ещё не смерженные в main, пропускаются — им хватит повторной генерации.',
+      )
+    } catch (e) {
+      setGenMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setRebuilding(false)
+    }
+  }
+
   // Генерация презентации: считает URL, запускает PR в talks и пишет ссылку в заявку.
   async function generateTalk(topicId: string) {
     const topic = topics?.find((t) => t.id === topicId)
@@ -317,6 +368,8 @@ export function EditEvent() {
         topic: topic.title,
         speaker: claim.speaker_id,
         stream: Number(form.stream),
+        // Программа вечера — для слайдов «Программа вечера» и «Что далее».
+        program: programSnapshot(),
       })
       await setClaimSlides(topicId, url)
       await loadClaims()
@@ -380,7 +433,7 @@ export function EditEvent() {
           </p>
         ) : (
           <EventTopicClaims
-            chapterSelected={Boolean(book && form.chapterSlug)}
+            chapterSelected={(topics ?? []).length > 0 || topicsLoading}
             loading={topicsLoading}
             topics={(topics ?? []).map((t) => ({ id: t.id, title: t.title }))}
             claimByTopic={claimByTopic}
@@ -396,6 +449,20 @@ export function EditEvent() {
             onAccept={acceptTalk}
           />
         )}
+        {/* Пересборка «хром»-слайдов: спикеров и ссылки на соседние доклады
+            презентации получают снимком, поэтому после смены спикера их надо
+            пересобрать — контентные слайды при этом не трогаются. */}
+        {getBotToken() && (topics ?? []).length > 0 ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+            <Button variant="ghost" onClick={rebuildTalks} loading={rebuilding}>
+              Пересобрать слайды вечера
+            </Button>
+            <span className="text-xs text-ink-soft">
+              Обновит «Программу вечера» и «Что далее» во всех докладах встречи:
+              спикеров с аватарками и ссылки на доклады.
+            </span>
+          </div>
+        ) : null}
       </Card>
       <Card>
         <p className="mb-1 text-sm font-medium">Монтажные ролики докладов</p>
@@ -404,8 +471,8 @@ export function EditEvent() {
           вместо записи всей встречи. Заполняйте после монтажа. Сохраняются с
           правками встречи (кнопка ниже).
         </p>
-        {!(book && form.chapterSlug) ? (
-          <p className="text-sm text-ink-soft">Выберите книгу и главу.</p>
+        {(topics ?? []).length === 0 && !topicsLoading ? (
+          <p className="text-sm text-ink-soft">Соберите программу эфира выше.</p>
         ) : topicsLoading ? (
           <p className="text-sm text-ink-soft">Загружаем темы главы…</p>
         ) : meetingTopics.length === 0 ? (
