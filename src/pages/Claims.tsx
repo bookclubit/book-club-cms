@@ -11,23 +11,19 @@ import {
   type SpeakerClaim,
 } from '../lib/botApi'
 import { useDataClient, useIndex, useLoad } from '../lib/hooks'
+import { eventArchived } from '../lib/events'
 import { mediaUrl } from '../lib/repo'
 import type { ClubEvent } from '../types'
 import { cleanupTalkForClaim, generateTalkForClaim } from '../lib/talksApi'
 
-// Встреча заявки: номер стрима + дата + признак завершённости (для архива).
+// Встреча заявки: номер стрима, дата и прошла ли она (для архива).
 interface Meeting {
   stream: number | null
   date: string
-  finished: boolean
+  archived: boolean
 }
 
 type Tab = 'active' | 'archive'
-
-function todayIso(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 // Модерация заявок спикеров (данные — из D1 бота, TG у админа лишь уведомляшка).
 // Две вкладки: активные (встреча ещё не прошла) и архив; активные сгруппированы
@@ -43,7 +39,7 @@ export function Claims() {
   const [photos, setPhotos] = useState<Record<number, string>>({})
   const [tab, setTab] = useState<Tab>('active')
 
-  // Карта встреч-«докладов»: `<book_id>:<chapter>` → номер стрима, дата, finished.
+  // Карта встреч-«докладов»: `<book_id>:<chapter>` → номер стрима, дата и прошла ли.
   // Нужна, чтобы понять, к какому «Книжному клубу» относится заявка и прошла ли встреча.
   const meetings = useLoad<Record<string, Meeting>>(async () => {
     if (!index) return {}
@@ -58,7 +54,7 @@ export function Claims() {
           map[`${ev.book_id}:${ev.chapter}`] = {
             stream: ev.stream ?? null,
             date: file.slice(0, 10),
-            finished: Boolean(ev.finished),
+            archived: eventArchived(ev),
           }
         }),
     )
@@ -151,11 +147,11 @@ export function Claims() {
   const meetingOf = (claim: SpeakerClaim): Meeting | null =>
     claim.book_id && claim.chapter ? (meetings.data?.[`${claim.book_id}:${claim.chapter}`] ?? null) : null
 
-  // В архиве — заявки встреч, которые уже завершены или дата которых прошла.
+  // В архиве — заявки встреч, которые уже прошли (`eventArchived`).
   const isArchived = (claim: SpeakerClaim): boolean => {
     const m = meetingOf(claim)
     if (!m) return false // вне плана / без встречи — всегда среди активных
-    return m.finished || m.date < todayIso()
+    return m.archived
   }
 
   // Заголовок группы: «Книжный клуб N», иначе — служебные корзины.

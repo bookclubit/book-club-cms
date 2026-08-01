@@ -13,6 +13,7 @@ import {
   Tr,
 } from '../components/ui'
 import { MergeButton } from '../components/MergeButton'
+import { eventArchived } from '../lib/events'
 import type { PullRequestInfo } from '../lib/github'
 import { useDataClient, useIndex, useLoad } from '../lib/hooks'
 import type { ClubEvent } from '../types'
@@ -35,8 +36,9 @@ interface EventRow {
 
 type Tab = 'active' | 'archive'
 
-// Список встреч: активные и архив (по флагу finished, как в miniapp).
-// Загружаем JSON каждой встречи, чтобы знать finished, stream и название.
+// Список встреч: активные и архив — тем же правилом, что в miniapp и боте
+// (`eventArchived`: флаг finished или 4 часа после начала).
+// Загружаем JSON каждой встречи, чтобы знать время, finished, stream и название.
 export function Events() {
   const gh = useDataClient()
   const { data: index } = useIndex(gh)
@@ -92,8 +94,8 @@ export function Events() {
   }, [gh])
 
   const all = rows.data ?? []
-  const active = all.filter((r) => !r.event?.finished)
-  const archive = all.filter((r) => r.event?.finished)
+  const active = all.filter((r) => !eventArchived(r.event))
+  const archive = all.filter((r) => eventArchived(r.event))
   const visible = tab === 'active' ? active : archive
 
   return (
