@@ -102,7 +102,5 @@ export async function commitToPR(
   return { number: options.pr.number, url: options.pr.html_url, branch }
 }
 
-// JSON в стиле репозитория: 2 пробела, перевод строки в конце (prettier-совместимо).
-export function toJSON(value: unknown): string {
-  return JSON.stringify(value, null, 2) + '\n'
-}
+// JSON в стиле репозитория — печатает `lib/json.ts` (prettier-совместимо).
+export { toJSON } from './json'

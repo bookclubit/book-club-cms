@@ -26,6 +26,10 @@
   access token; он хранится в `localStorage` и никуда, кроме GitHub, не уходит.
 - **Один PR — один коммит.** Файлы (включая бинарные WebP) собираются через Git
   Data API: blobs → tree → commit → branch → pull request.
+- **JSON печатается как prettier** (`src/lib/json.ts`): 2 пробела, но короткие
+  массивы — в одну строку. `JSON.stringify` так не умеет, и проверка
+  `prettier --check` в pull request-е падала на каждом файле с коротким
+  массивом (`topic_ids` встречи, `books` спикера).
 - **Единый реестр `index.json` — генерируемый.** raw.githubusercontent.com не
   умеет листать директории, поэтому в корне book-club-data лежит реестр книг/
   глав/событий/спикеров. GitHub Action в book-club-data пересобирает его после
