@@ -29,6 +29,7 @@ import { loadBookMeta } from '../lib/repo'
 import { slugify } from '../lib/slug'
 import {
   acceptTalkForSlides,
+  branchFromSlides,
   dispatchNewTalk,
   dispatchRebuildTalks,
   fetchAcceptedSlides,
@@ -378,6 +379,9 @@ export function EditEvent() {
         topic: topic.title,
         speaker: claim.speaker_id,
         stream: Number(form.stream),
+        // Генератор сверит имя папки со своим: если вкладка CMS устарела,
+        // генерация упадёт, а не создаст доклад под чужим адресом.
+        expect: branchFromSlides(url) ?? undefined,
         // Программа вечера — для слайдов «Программа вечера» и «Что далее».
         program: programSnapshot(),
       })

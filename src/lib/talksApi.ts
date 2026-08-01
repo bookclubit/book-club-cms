@@ -40,6 +40,8 @@ export interface NewTalkPayload {
   topic: string // индекс (с 1), id или точное название темы
   speaker: string // id спикера
   stream: number // номер стрима
+  /** Имя папки, которое CMS вписала в заявку: генератор сверится с ним. */
+  expect?: string
   /** Программа вечера в порядке вечера — для «хром»-слайдов. */
   program?: ProgramSnapshotTopic[]
 }
@@ -236,6 +238,7 @@ export async function generateTalkForClaim(
     topic: claim.topic_title,
     speaker: claim.speaker_id,
     stream,
+    expect: branchFromSlides(url) ?? undefined,
   })
   await setClaimSlides(claim.topic_id, url)
   return url
