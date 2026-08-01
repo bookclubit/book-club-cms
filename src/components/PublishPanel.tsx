@@ -11,6 +11,7 @@ export function PublishPanel({
   disabledReason,
   submitLabel = 'Создать pull request',
   updated = false,
+  summary,
 }: {
   state: PublishState
   onSubmit: () => void
@@ -20,6 +21,8 @@ export function PublishPanel({
   submitLabel?: string
   // Правки дописаны в уже открытый PR, а не открыт новый.
   updated?: boolean
+  /** Что именно уйдёт в PR — видно до публикации (напр. «тем: 5»). */
+  summary?: string
 }) {
   if (state.phase === 'done') {
     return (
@@ -60,9 +63,11 @@ export function PublishPanel({
         <Button onClick={onSubmit} disabled={disabled} loading={state.phase === 'working'}>
           {state.phase === 'working' ? 'Публикуем…' : submitLabel}
         </Button>
-        {disabled && disabledReason && (
+        {disabled && disabledReason ? (
           <span className="text-sm text-ink-faint">{disabledReason}</span>
-        )}
+        ) : summary ? (
+          <span className="text-sm text-ink-faint">{summary}</span>
+        ) : null}
       </div>
     </div>
   )

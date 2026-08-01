@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PublishPanel } from '../components/PublishPanel'
 import { TopicsEditor } from '../components/TopicsEditor'
+import { withBulkTitles } from '../lib/topics'
 import {
   Card,
   CardTitle,
@@ -31,6 +32,8 @@ export function EditChapter() {
 
   const [title, setTitle] = useState('')
   const [topics, setTopics] = useState<Topic[]>([])
+  // Набранные, но не добавленные кнопкой названия тем — тоже уходят в PR.
+  const [bulk, setBulk] = useState('')
 
   useEffect(() => {
     const ch = chapter.data
@@ -51,6 +54,13 @@ export function EditChapter() {
   }, [chapter.data])
 
   const ready = Boolean(chapter.data && title.trim())
+  // Что уйдёт в PR (с учётом набранных, но не добавленных кнопкой названий).
+  const finalTopics = withBulkTitles(
+    topics,
+    bulk,
+    book?.id ?? folder,
+    chapter.data?.order ?? 1,
+  ).filter((t) => t.title.trim())
 
   function submit() {
     const current = chapter.data
@@ -59,7 +69,7 @@ export function EditChapter() {
       const next: Chapter = {
         order: current.order,
         title: title.trim(),
-        topics: topics
+        topics: withBulkTitles(topics, bulk, book?.id ?? folder, current.order)
           .filter((t) => t.title.trim())
           .map((t) => ({
             ...t,
@@ -135,6 +145,8 @@ export function EditChapter() {
           speakers={index?.speakers ?? []}
           bookId={book?.id ?? folder}
           chapterOrder={chapter.data.order}
+          bulk={bulk}
+          onBulkChange={setBulk}
           onChange={setTopics}
         />
       </Card>
@@ -145,6 +157,7 @@ export function EditChapter() {
         onReset={reset}
         disabled={!ready}
         disabledReason="Заполните поля главы"
+        summary={`тем в PR: ${finalTopics.length}`}
         submitLabel="Создать pull request с правками"
       />
     </div>

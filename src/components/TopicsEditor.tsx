@@ -1,32 +1,10 @@
 import { useState } from 'react'
+import { emptyTopic, nextTopicId, withBulkTitles } from '../lib/topics'
 import type { IndexSpeaker, Topic } from '../types'
 import { Badge, Button, Field, Mono, TextArea, TextInput } from './ui'
 
 // Редактор тем главы. Тема — строка списка: название всегда на виду,
 // ссылки и спикеры раскрываются по клику (их заполняют уже после встречи).
-
-export function emptyTopic(id: string, title = ''): Topic {
-  return {
-    id,
-    title,
-    speakers: [],
-    video_youtube: '',
-    video_vk: '',
-    presentation: '',
-    resources: [],
-  }
-}
-
-// id темы: <book-id>-<номер главы>-<номер темы>. Продолжаем нумерацию с
-// максимального занятого номера, чтобы id не столкнулись после удалений.
-export function nextTopicId(bookId: string, chapterOrder: number, topics: Topic[]): string {
-  const prefix = `${bookId}-${chapterOrder}-`
-  const used = topics
-    .map((t) => (t.id.startsWith(prefix) ? Number(t.id.slice(prefix.length)) : NaN))
-    .filter((n) => Number.isFinite(n))
-  const next = used.length > 0 ? Math.max(...used) + 1 : topics.length + 1
-  return `${prefix}${next}`
-}
 
 function speakerName(s: IndexSpeaker): string {
   return s.aliases[0] ?? s.name
@@ -228,27 +206,24 @@ export function TopicsEditor({
   bookId,
   chapterOrder,
   onChange,
+  bulk,
+  onBulkChange,
 }: {
   topics: Topic[]
   speakers: IndexSpeaker[]
   bookId: string
   chapterOrder: number
   onChange: (next: Topic[]) => void
+  /** Набранные названия тем. Живут в состоянии страницы, а не поля: страница
+   *  обязана дописать их к темам при публикации (`withBulkTitles`). */
+  bulk: string
+  onBulkChange: (next: string) => void
 }) {
-  const [bulk, setBulk] = useState('')
-
   function addBulk() {
-    const titles = bulk
-      .split('\n')
-      .map((t) => t.trim())
-      .filter(Boolean)
-    if (titles.length === 0) return
-    const next = [...topics]
-    for (const title of titles) {
-      next.push(emptyTopic(nextTopicId(bookId, chapterOrder, next), title))
-    }
+    const next = withBulkTitles(topics, bulk, bookId, chapterOrder)
+    if (next.length === topics.length) return
     onChange(next)
-    setBulk('')
+    onBulkChange('')
   }
 
   function move(index: number, delta: number) {
@@ -286,12 +261,12 @@ export function TopicsEditor({
       <div className={topics.length > 0 ? 'border-t border-line pt-4' : ''}>
         <Field
           label={topics.length > 0 ? 'Добавить темы' : 'Названия тем'}
-          hint="по одному названию на строку; ссылки и спикеров можно проставить позже"
+          hint="по одному названию на строку; уйдут при публикации, даже если не нажимать кнопку"
         >
           <TextArea
             rows={3}
             value={bulk}
-            onChange={(e) => setBulk(e.target.value)}
+            onChange={(e) => onBulkChange(e.target.value)}
             placeholder={'Почему Docker\nАрхитектура Docker\nЖизненный цикл контейнера'}
           />
         </Field>

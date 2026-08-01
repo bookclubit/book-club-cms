@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { PublishPanel } from '../components/PublishPanel'
 import { TopicsEditor } from '../components/TopicsEditor'
+import { withBulkTitles } from '../lib/topics'
 import { Card, CardTitle, Field, PageHeader, Select, TextInput } from '../components/ui'
 import { useDataClient, useIndex, useLoad, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON, type FileChange } from '../lib/pr'
@@ -17,6 +18,8 @@ export function AddChapter() {
   const [folder, setFolder] = useState('')
   const [title, setTitle] = useState('')
   const [topics, setTopics] = useState<Topic[]>([])
+  // Набранные, но не добавленные кнопкой названия тем — тоже уходят в PR.
+  const [bulk, setBulk] = useState('')
 
   const book = index?.books.find((b) => b.folder === folder)
 
@@ -44,7 +47,9 @@ export function AddChapter() {
   const chapterSlug = `${pad2(order)}-${slugify(title)}`
   const slugTaken = existingChapters.includes(chapterSlug)
 
-  const filledTopics = topics.filter((t) => t.title.trim())
+  const filledTopics = withBulkTitles(topics, bulk, book?.id ?? 'book', order).filter((t) =>
+    t.title.trim(),
+  )
   const ready = Boolean(book && title.trim() && !chapterDirs.loading)
 
   function submit() {
@@ -144,6 +149,8 @@ export function AddChapter() {
           bookId={book?.id ?? 'book'}
           chapterOrder={order}
           onChange={setTopics}
+          bulk={bulk}
+          onBulkChange={setBulk}
         />
       </Card>
 
@@ -155,6 +162,7 @@ export function AddChapter() {
         disabledReason={
           slugTaken ? 'Смените номер или название' : 'Выберите книгу и введите название главы'
         }
+        summary={`тем в PR: ${filledTopics.length}`}
       />
     </div>
   )
