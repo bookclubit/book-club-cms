@@ -122,6 +122,8 @@ export interface ProgramTopic extends Topic {
   chapterSlug: string
   chapterOrder: number
   chapterTitle: string
+  /** Номер темы внутри главы (с 1) — часть имени папки доклада. */
+  topicOrder: number
 }
 
 /**
@@ -161,6 +163,9 @@ export function useProgramTopics(
           chapterSlug: block.chapterSlug,
           chapterOrder: chapter.order,
           chapterTitle: chapter.title,
+          // Номер считаем по всей главе, а не по выбранным темам: у доклада
+          // он должен быть один и тот же, сколько бы тем ни попало в эфир.
+          topicOrder: chapter.topics.findIndex((x) => x.id === t.id) + 1,
         }))
       }),
     )

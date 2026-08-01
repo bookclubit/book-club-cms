@@ -363,10 +363,13 @@ export function EditEvent() {
       const meta = await loadBookMeta(gh, topic.folder)
       if (!meta?.code) throw new Error('У книги нет кода (задайте в форме книги: DOCKER, REACT…)')
 
+      // Номер темы в имени папки — иначе доклады одного спикера по одной главе
+      // получили бы одну папку и один адрес.
       const url = slidesUrl({
         stream: Number(form.stream),
         code: meta.code,
         chapterOrder: topic.chapterOrder,
+        topicOrder: topic.topicOrder,
         speakerId: claim.speaker_id,
       })
       await dispatchNewTalk(getToken() ?? '', {
