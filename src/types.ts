@@ -19,10 +19,21 @@ export type BookStatus = 'reading' | 'planned' | 'finished'
 // Категории книг — внутренние вкладки-фильтры в списке книг.
 // Клуб читает несколько книг параллельно (чередуя), категории помогают
 // не терять их в общем списке.
-export type BookCategory = 'base' | 'algorithms' | 'tools' | 'frameworks' | 'ai'
+export type BookCategory =
+  | 'base'
+  | 'javascript'
+  | 'typescript'
+  | 'algorithms'
+  | 'tools'
+  | 'frameworks'
+  | 'ai'
 
-export const BOOK_CATEGORIES: Array<{ id: BookCategory; label: string }> = [
+// `short` — короткая подпись фильтра в приложении клуба («JS», «TS»),
+// в формах CMS показываем полное название.
+export const BOOK_CATEGORIES: Array<{ id: BookCategory; label: string; short?: string }> = [
   { id: 'base', label: 'База' },
+  { id: 'javascript', label: 'JavaScript', short: 'JS' },
+  { id: 'typescript', label: 'TypeScript', short: 'TS' },
   { id: 'algorithms', label: 'Алгоритмы' },
   { id: 'tools', label: 'Инструменты' },
   { id: 'frameworks', label: 'Фреймворки' },
