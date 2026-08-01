@@ -30,6 +30,8 @@ export interface ProgramSnapshotTopic {
   topic_id: string
   speaker?: { name: string; avatar?: string }
   slides_url?: string
+  /** Глава темы: по ней слайды раскладывают программу по колонкам. */
+  group?: string
 }
 
 export interface NewTalkPayload {

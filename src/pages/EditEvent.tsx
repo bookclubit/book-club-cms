@@ -298,14 +298,21 @@ export function EditEvent() {
    * они уходят снимком — из book-club-data их не собрать.
    */
   function programSnapshot(): ProgramSnapshotTopic[] {
+    // Название главы уходит в снимок: на слайдах темы разных глав встают
+    // отдельными колонками, и колонке нужен заголовок. Книгу в него добавляем,
+    // только когда за вечер разбирают несколько книг, — иначе это шум.
+    const manyBooks = new Set((topics ?? []).map((t) => t.folder)).size > 1
     return (topics ?? []).map((t) => {
       const claim = claimByTopic.get(t.id)
       const speaker = claim
         ? index?.speakers.find((s) => s.id === claim.speaker_id)
         : undefined
+      const book = index?.books.find((b) => b.folder === t.folder)
+      const chapter = `Глава ${t.chapterOrder}. ${t.chapterTitle}`
       return {
         title: t.title,
         topic_id: t.id,
+        group: manyBooks && book ? `${book.title} · ${chapter}` : chapter,
         ...(claim
           ? {
               speaker: {
