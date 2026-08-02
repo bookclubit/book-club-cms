@@ -118,10 +118,9 @@ export function buildEventFiles(opts: {
     ...(form.vk.trim() ? { vk: form.vk.trim() } : {}),
   }
   const common = {
-    // Meet — только у открытых обсуждений; доклады — чистовая запись.
-    ...(kind === 'closed-chapter' && form.callUrl.trim()
-      ? { call_url: form.callUrl.trim() }
-      : {}),
+    // Созвон бывает у любой встречи: на эфир с докладами тоже собираются
+    // в Meet — оттуда и ведут трансляцию.
+    ...(form.callUrl.trim() ? { call_url: form.callUrl.trim() } : {}),
     ...(materials.length > 0 ? { materials } : {}),
     ...(form.finished ? { finished: true } : {}),
   }
@@ -287,18 +286,16 @@ export function EventFormFields({
               <TextInput value={form.vk} onChange={(e) => form.setVk(e.target.value)} />
             </Field>
           </div>
-          {kind === 'closed-chapter' && (
-            <Field
-              label="Google Meet (подключиться к обсуждению)"
-              hint="бот выдаст ссылку записавшимся; у докладов созвона нет — это чистовая запись"
-            >
-              <TextInput
-                value={form.callUrl}
-                onChange={(e) => form.setCallUrl(e.target.value)}
-                placeholder="https://meet.google.com/…"
-              />
-            </Field>
-          )}
+          <Field
+            label="Google Meet (подключиться к встрече)"
+            hint="бот выдаст ссылку записавшимся, в приложении появится кнопка «Подключиться»"
+          >
+            <TextInput
+              value={form.callUrl}
+              onChange={(e) => form.setCallUrl(e.target.value)}
+              placeholder="https://meet.google.com/…"
+            />
+          </Field>
           <Field label="Доп. материалы" hint="по одному на строку: «название | ссылка»">
             <TextArea
               rows={2}
