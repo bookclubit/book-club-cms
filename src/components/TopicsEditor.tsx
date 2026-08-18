@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { emptyTopic, nextTopicId, withBulkTitles } from '../lib/topics'
+import {
+  emptyTopic,
+  groupTitle,
+  mergeTopics,
+  nextTopicId,
+  splitGroup,
+  topicGroups,
+  withBulkTitles,
+} from '../lib/topics'
 import type { IndexSpeaker, Topic } from '../types'
 import { Badge, Button, Field, Mono, TextArea, TextInput } from './ui'
 
@@ -25,6 +33,8 @@ function TopicRow({
   index,
   total,
   speakers,
+  selected,
+  onSelect,
   onChange,
   onMove,
   onRemove,
@@ -33,6 +43,9 @@ function TopicRow({
   index: number
   total: number
   speakers: IndexSpeaker[]
+  /** Отмечена для объединения в один доклад. */
+  selected: boolean
+  onSelect: (next: boolean) => void
   onChange: (next: Topic) => void
   onMove: (delta: number) => void
   onRemove: () => void
@@ -54,8 +67,15 @@ function TopicRow({
   }
 
   return (
-    <li className="border-b border-line py-3 last:border-0">
+    <div className="py-3">
       <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => onSelect(e.target.checked)}
+          aria-label={`Отметить тему ${index + 1} для объединения в доклад`}
+          className="h-4 w-4 shrink-0"
+        />
         <span className="nums w-6 shrink-0 text-sm text-ink-faint">{index + 1}</span>
 
         <div className="min-w-32 flex-1">
@@ -196,7 +216,44 @@ function TopicRow({
           </Field>
         </div>
       ) : null}
-    </li>
+    </div>
+  )
+}
+
+/**
+ * Несколько тем — один доклад: спикер берёт их вместе, поэтому бронь, слайды
+ * и запись у них общие. Темы остаются отдельными (id неизменяем, на него
+ * ссылаются встречи и заявки), но в программе вечера, в слотах для брони и на
+ * слайдах идут одной строкой через запятую.
+ */
+function TalkGroup({
+  title,
+  onSplit,
+  children,
+}: {
+  title: string
+  onSplit: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="my-2 rounded-control border border-line bg-surface-2/40 pl-3 pr-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5">
+        <span className="text-xs text-ink-soft">
+          <span className="font-medium text-ink">Один доклад:</span> {title}
+        </span>
+        <button
+          type="button"
+          onClick={onSplit}
+          className="rounded-control px-2.5 py-1 text-xs font-medium text-ink-soft transition-colors duration-120 ease-out hover:bg-surface-2 hover:text-ink active:translate-y-px"
+        >
+          Разъединить
+        </button>
+      </div>
+      <p className="pb-1 pt-1 text-xs text-ink-faint">
+        Ссылки и запись доклада берутся из первой темы группы.
+      </p>
+      {children}
+    </div>
   )
 }
 
@@ -219,6 +276,10 @@ export function TopicsEditor({
   bulk: string
   onBulkChange: (next: string) => void
 }) {
+  // Отмеченные для объединения темы. Живут в состоянии редактора: в главу
+  // уходит только результат — общий `talk_group` у тем группы.
+  const [selected, setSelected] = useState<string[]>([])
+
   function addBulk() {
     const next = withBulkTitles(topics, bulk, bookId, chapterOrder)
     if (next.length === topics.length) return
@@ -234,23 +295,69 @@ export function TopicsEditor({
     onChange(next)
   }
 
+  function toggleSelected(id: string, on: boolean) {
+    setSelected((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)))
+  }
+
+  function merge() {
+    onChange(mergeTopics(topics, selected))
+    setSelected([])
+  }
+
+  // Строка темы: индекс в общем списке — по нему считаются номер и стрелки,
+  // поэтому группы рисуются поверх плоского списка, а не вместо него.
+  function row(topic: Topic) {
+    const i = topics.indexOf(topic)
+    return (
+      <TopicRow
+        key={topic.id}
+        topic={topic}
+        index={i}
+        total={topics.length}
+        speakers={speakers}
+        selected={selected.includes(topic.id)}
+        onSelect={(on) => toggleSelected(topic.id, on)}
+        onChange={(next) => onChange(topics.map((t, j) => (j === i ? next : t)))}
+        onMove={(delta) => move(i, delta)}
+        onRemove={() => onChange(topics.filter((_, j) => j !== i))}
+      />
+    )
+  }
+
   return (
     <div>
       {topics.length > 0 ? (
-        <ul className="mb-4">
-          {topics.map((topic, i) => (
-            <TopicRow
-              key={topic.id}
-              topic={topic}
-              index={i}
-              total={topics.length}
-              speakers={speakers}
-              onChange={(next) => onChange(topics.map((t, j) => (j === i ? next : t)))}
-              onMove={(delta) => move(i, delta)}
-              onRemove={() => onChange(topics.filter((_, j) => j !== i))}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="mb-3">
+            {topicGroups(topics).map((group) => (
+              <li key={group.key} className="border-b border-line last:border-0">
+                {group.topics.length === 1 ? (
+                  row(group.topics[0])
+                ) : (
+                  <TalkGroup
+                    title={groupTitle(group.topics)}
+                    onSplit={() => onChange(splitGroup(topics, group.key))}
+                  >
+                    <div className="divide-y divide-line">{group.topics.map(row)}</div>
+                  </TalkGroup>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {/* Объединение — над полем ввода новых тем: это действие по списку,
+              а не по одной теме, поэтому кнопка живёт под ним. */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Button variant="ghost" onClick={merge} disabled={selected.length < 2}>
+              Объединить в доклад
+            </Button>
+            <span className="text-xs text-ink-faint">
+              {selected.length < 2
+                ? 'Отметьте две или больше тем — они станут одним докладом.'
+                : `Отмечено тем: ${selected.length}`}
+            </span>
+          </div>
+        </>
       ) : (
         <p className="mb-4 text-sm text-ink-faint">
           Тем пока нет. Впиши названия ниже — по одному на строку.

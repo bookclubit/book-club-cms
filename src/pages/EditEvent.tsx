@@ -376,7 +376,9 @@ export function EditEvent() {
       await dispatchNewTalk(getToken() ?? '', {
         book: topic.folder,
         chapter: topic.chapterSlug,
-        topic: topic.title,
+        // id, а не название: у объединённых тем название — это список через
+        // запятую, и совпадение по строке зависело бы от порядка тем в главе.
+        topic: topic.id,
         speaker: claim.speaker_id,
         stream: Number(form.stream),
         // Генератор сверит имя папки со своим: если вкладка CMS устарела,

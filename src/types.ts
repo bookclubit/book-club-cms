@@ -63,6 +63,12 @@ export interface BookMeta {
 export interface Topic {
   id: string
   title: string
+  /**
+   * Темы одного доклада: общий id ведущей темы группы. Спикер берёт несколько
+   * тем подряд и рассказывает их вместе — тогда у них одна бронь, одни слайды
+   * и одна запись, а в программе они идут через запятую (`lib/topics.ts`).
+   */
+  talk_group?: string
   speakers: string[]
   video_youtube: string
   video_vk: string

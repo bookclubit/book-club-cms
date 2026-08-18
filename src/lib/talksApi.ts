@@ -235,7 +235,8 @@ export async function generateTalkForClaim(
   await dispatchNewTalk(githubToken, {
     book: book.folder,
     chapter: claim.chapter,
-    topic: claim.topic_title,
+    // id темы точнее названия: у объединённых тем оно склеено через запятую.
+    topic: claim.topic_id,
     speaker: claim.speaker_id,
     stream,
     expect: branchFromSlides(url) ?? undefined,

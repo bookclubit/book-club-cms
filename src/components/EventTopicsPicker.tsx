@@ -1,9 +1,15 @@
-import type { TopicItem } from './EventTopicClaims'
+/** Пункт списка — доклад: у объединённых тем он один на всю группу. */
+export interface TopicPickerItem {
+  id: string
+  title: string
+  /** Все темы пункта: у объединённых их несколько, отмечаются вместе. */
+  ids: string[]
+}
 
 interface EventTopicsPickerProps {
   chapterSelected: boolean
   loading: boolean
-  topics: TopicItem[]
+  topics: TopicPickerItem[]
   // Выбранные темы встречи (id). Пусто = вся глава.
   selected: string[]
   onChange: (ids: string[]) => void
@@ -35,8 +41,11 @@ export function EventTopicsPicker({
     )
   }
 
-  function toggle(id: string) {
-    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
+  // Объединённые темы отмечаются целиком: разложить доклад по двум эфирам
+  // нельзя, а фильтры встречи всё равно работают по id каждой темы.
+  function toggle(ids: string[]) {
+    const on = ids.every((id) => selected.includes(id))
+    onChange(on ? selected.filter((x) => !ids.includes(x)) : [...selected, ...ids.filter((id) => !selected.includes(id))])
   }
 
   return (
@@ -48,8 +57,8 @@ export function EventTopicsPicker({
         >
           <input
             type="checkbox"
-            checked={selected.includes(topic.id)}
-            onChange={() => toggle(topic.id)}
+            checked={topic.ids.every((id) => selected.includes(id))}
+            onChange={() => toggle(topic.ids)}
             className="mt-0.5 h-4 w-4 shrink-0"
           />
           <span className="text-sm">{topic.title}</span>
@@ -58,7 +67,9 @@ export function EventTopicsPicker({
       <p className="text-xs text-ink-soft">
         {selected.length === 0
           ? 'Ничего не отмечено — на встрече вся глава.'
-          : `На встрече ${selected.length} из ${topics.length} тем главы.`}
+          : `На встрече ${selected.length} тем главы (докладов: ${
+              topics.filter((t) => t.ids.every((id) => selected.includes(id))).length
+            }).`}
       </p>
     </div>
   )

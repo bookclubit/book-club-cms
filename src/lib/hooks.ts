@@ -4,6 +4,7 @@ import { getToken } from './auth'
 import { GitHubClient } from './github'
 import type { OpenPRResult } from './pr'
 import { dataClient, loadChapter, loadIndex } from './repo'
+import { mergeTalkTopics } from './topics'
 
 // Клиент book-club-data с токеном из localStorage (страницы под гардом — токен есть).
 export function useDataClient(): GitHubClient {
@@ -157,7 +158,9 @@ export function useProgramTopics(
           block.topicIds.length > 0
             ? chapter.topics.filter((t) => block.topicIds.includes(t.id))
             : chapter.topics
-        return picked.map((t) => ({
+        // Темы, объединённые в один доклад, дальше идут одной строкой: у эфира
+        // это один слот, одна заявка в D1 и одна презентация.
+        return mergeTalkTopics(picked).map((t) => ({
           ...t,
           folder: block.folder,
           chapterSlug: block.chapterSlug,

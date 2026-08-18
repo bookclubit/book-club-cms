@@ -4,6 +4,7 @@
 
 import { useDataClient, useLoad } from '../lib/hooks'
 import { loadChapter } from '../lib/repo'
+import { groupTitle, topicGroups } from '../lib/topics'
 import type { ContentIndex } from '../types'
 import { EventTopicsPicker } from './EventTopicsPicker'
 import { Button, Field, Select } from './ui'
@@ -46,7 +47,12 @@ function BlockRow({
         : null,
     [gh, block.folder, block.chapterSlug],
   )
-  const topics = (chapter.data?.topics ?? []).map((t) => ({ id: t.id, title: t.title }))
+  // Объединённые темы — один пункт списка: доклад целиком идёт на один эфир.
+  const topics = topicGroups(chapter.data?.topics ?? []).map((group) => ({
+    id: group.topics[0].id,
+    title: groupTitle(group.topics),
+    ids: group.topics.map((t) => t.id),
+  }))
 
   return (
     <div className="border-t border-line pt-4 first:border-0 first:pt-0">
