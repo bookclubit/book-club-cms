@@ -78,10 +78,11 @@ export class GitHubClient {
 
   private async request<T>(
     path: string,
-    init?: { method?: string; body?: unknown },
+    init?: { method?: string; body?: unknown; cache?: RequestCache },
   ): Promise<T> {
     const res = await fetch(`${API}${path}`, {
       method: init?.method ?? 'GET',
+      cache: init?.cache,
       headers: {
         Authorization: `Bearer ${this.token}`,
         Accept: 'application/vnd.github+json',
@@ -138,9 +139,14 @@ export class GitHubClient {
     }
   }
 
+  // Голова ветки — родитель следующего коммита, поэтому мимо HTTP-кэша: GitHub
+  // отдаёт GET с max-age=60, и браузер минуту возвращал бы старый sha. Так
+  // второй PR подряд собирался поверх устаревшего main, а второй коммит в ветку
+  // PR получил бы 422 (не fast-forward).
   async getBranchHead(branch: string): Promise<string> {
     const ref = await this.request<{ object: { sha: string } }>(
       `${this.repoPath}/git/ref/${encodeURIComponent(`heads/${branch}`)}`,
+      { cache: 'no-store' },
     )
     return ref.object.sha
   }

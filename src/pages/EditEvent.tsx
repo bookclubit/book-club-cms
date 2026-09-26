@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   buildEventFiles,
   EventFormFields,
@@ -44,9 +44,28 @@ import type { ClubEvent } from '../types'
 export function EditEvent() {
   const { dir = '', file = '' } = useParams()
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const gh = useDataClient()
   const { data: index } = useIndex(gh)
   const { state, publish, reset } = usePublish()
+  // Итог публикации — дописали в открытый PR или открыли новый — запоминаем
+  // при отправке: к показу итога страница уже перешла на новый PR.
+  const [updatedPR, setUpdatedPR] = useState(false)
+  // Имя файла из последней публикации: после переноса даты оно новое.
+  const publishedFile = useRef(file)
+
+  // Опубликовали — дальше правим встречу уже в этом PR, по её новому пути:
+  // иначе «Добавить ещё» открывало второй PR с той же правкой, а после переноса
+  // даты страница смотрела бы на удалённый файл. Эффект, а не вызов в submit:
+  // ушедшего со страницы за время публикации обратно не возвращаем.
+  useEffect(() => {
+    if (state.phase !== 'done') return
+    navigate(
+      `/events/${dir}/${encodeURIComponent(publishedFile.current)}/edit?pr=${state.result.number}`,
+      { replace: true },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
 
   const kind = dir === 'closed-chapters' ? 'closed-chapter' : 'live-talk'
 
@@ -192,6 +211,7 @@ export function EditEvent() {
 
   function submit() {
     if (!index || !event.data) return
+    setUpdatedPR(Boolean(pr))
     publish(async () => {
       const slug = slugify(form.title)
       const newFile = `${form.date}-${slug}.json`
@@ -248,6 +268,7 @@ export function EditEvent() {
         }
       }
 
+      publishedFile.current = newFile
       return result
     })
   }
@@ -425,7 +446,12 @@ export function EditEvent() {
     }
   }
 
-  if (event.loading) return <p className="text-sm text-ink-soft">Загружаем встречу…</p>
+  // Заглушка — только при первой загрузке: после публикации страница
+  // перечитывает встречу из ветки PR, и схлопнутая форма унесла бы прокрутку
+  // вместе с итогом публикации.
+  if (event.loading && !event.data) {
+    return <p className="text-sm text-ink-soft">Загружаем встречу…</p>
+  }
   if (event.error) return <ErrorBox>{event.error}</ErrorBox>
   if (!event.data) {
     return (
@@ -596,7 +622,7 @@ export function EditEvent() {
         disabled={!ready}
         disabledReason="Заполните название, дату и обязательные поля типа встречи"
         submitLabel={pr ? `Дописать правки в PR #${pr.number}` : 'Создать pull request с правками'}
-        updated={Boolean(pr)}
+        updated={updatedPR}
       />
     </div>
   )
