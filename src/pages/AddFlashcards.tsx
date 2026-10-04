@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ExampleKindField } from '../components/ExampleKindField'
 import { PublishPanel } from '../components/PublishPanel'
 import {
   Button,
@@ -13,13 +14,14 @@ import { useDataClient, useIndex, usePublish } from '../lib/hooks'
 import { openContentPR, toJSON } from '../lib/pr'
 import { loadFlashcards } from '../lib/repo'
 import { pad3 } from '../lib/slug'
-import type { Flashcard, FlashcardDifficulty } from '../types'
+import type { Flashcard, FlashcardDifficulty, FlashcardExampleKind } from '../types'
 
 interface CardDraft {
   type: 'qa' | 'command'
   front: string // question | command
   back: string // answer | result
   example: string // необязательный пример к ответу
+  exampleKind: FlashcardExampleKind // пример кода или пояснение под кнопкой
   chapter: string
   difficulty: FlashcardDifficulty
 }
@@ -29,6 +31,7 @@ const emptyCard = (): CardDraft => ({
   front: '',
   back: '',
   example: '',
+  exampleKind: 'code',
   chapter: '1',
   difficulty: 'medium',
 })
@@ -81,8 +84,14 @@ export function AddFlashcards() {
     publish(async () => {
       const newCards: Flashcard[] = filled.map((c, i) => {
         const id = `${prefix}-${pad3(nextNumber + i)}`
-        // Пустой пример в файл не пишем: поле необязательное.
-        const example = c.example.trim() ? { example: c.example.trim() } : {}
+        // Пустой пример в файл не пишем: поле необязательное. Вид пишем,
+        // только когда это пояснение — пример кода подразумевается.
+        const example = c.example.trim()
+          ? {
+              example: c.example.trim(),
+              ...(c.exampleKind === 'note' ? { example_kind: 'note' as const } : {}),
+            }
+          : {}
         return c.type === 'qa'
           ? {
               id,
@@ -223,11 +232,13 @@ export function AddFlashcards() {
               />
             </Field>
             <Field
-              label="Пример (по желанию)"
+              label={card.exampleKind === 'note' ? 'Пояснение (по желанию)' : 'Пример (по желанию)'}
               hint={
-                card.type === 'qa'
-                  ? 'Короткий пример к ответу — покажется под ним в приложении и в боте'
-                  : 'Пример вызова или вывода команды'
+                card.exampleKind === 'note'
+                  ? 'Спрятано под кнопкой «Объяснение» — карточка раздвигается по нажатию'
+                  : card.type === 'qa'
+                    ? 'Пример кода к ответу — виден сразу под ним, моноширинным шрифтом'
+                    : 'Пример вызова или вывода команды — виден сразу под результатом'
               }
             >
               <TextArea
@@ -238,6 +249,12 @@ export function AddFlashcards() {
                 }
               />
             </Field>
+            <ExampleKindField
+              value={card.exampleKind}
+              onChange={(exampleKind) =>
+                setCards(cards.map((c, j) => (j === i ? { ...c, exampleKind } : c)))
+              }
+            />
           </div>
         </Card>
       ))}

@@ -87,6 +87,13 @@ export interface Chapter {
 
 export type FlashcardDifficulty = 'easy' | 'medium' | 'hard'
 
+/**
+ * Что лежит в поле `example`: пример кода (по умолчанию — виден сразу под
+ * ответом, моноширинный) или пояснение — в приложении оно спрятано под
+ * кнопкой «Объяснение». В файл пишется только `note`.
+ */
+export type FlashcardExampleKind = 'code' | 'note'
+
 export interface FlashcardQA {
   id: string
   type: 'qa'
@@ -96,6 +103,7 @@ export interface FlashcardQA {
   difficulty: FlashcardDifficulty
   /** Пример к ответу — необязателен: показывается под ответом. */
   example?: string
+  example_kind?: FlashcardExampleKind
 }
 
 export interface FlashcardCommand {
@@ -107,6 +115,7 @@ export interface FlashcardCommand {
   difficulty: FlashcardDifficulty
   /** Пример вывода или использования команды — необязателен. */
   example?: string
+  example_kind?: FlashcardExampleKind
 }
 
 export type Flashcard = FlashcardQA | FlashcardCommand

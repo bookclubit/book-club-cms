@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ExampleKindField } from '../components/ExampleKindField'
 import { PublishPanel } from '../components/PublishPanel'
 import {
   Button,
@@ -66,12 +67,17 @@ export function Flashcards() {
   }
 
   // Пустой пример из файла убираем совсем, а не пишем `example: ""`:
-  // поле необязательное, и пустая строка засоряла бы данные.
+  // поле необязательное, и пустая строка засоряла бы данные. Вид примера
+  // пишем, только когда это пояснение: пример кода подразумевается.
   function forPublish(list: Flashcard[]): Flashcard[] {
     return list.map((card) => {
-      if (card.example?.trim()) return { ...card, example: card.example.trim() }
-      const { example: _dropped, ...rest } = card
-      return rest as Flashcard
+      const { example, example_kind, ...rest } = card
+      if (!example?.trim()) return rest as Flashcard
+      return {
+        ...rest,
+        example: example.trim(),
+        ...(example_kind === 'note' ? { example_kind } : {}),
+      } as Flashcard
     })
   }
 
@@ -107,7 +113,7 @@ export function Flashcards() {
     <div className="space-y-6">
       <PageHeader
         title="Карточки"
-        hint="Колода книги для повторения по SM-2: бот рассылает их, miniapp показывает в «Повторении»."
+        hint="Колода книги для повторения по SM-2: повторяют в miniapp, бот напоминает."
         action={
           <Link
             to="/flashcards/new"
@@ -225,8 +231,14 @@ export function Flashcards() {
                   </>
                 )}
                 <Field
-                  label="Пример (по желанию)"
-                  hint="Показывается под ответом в приложении и в боте"
+                  label={
+                    card.example_kind === 'note' ? 'Пояснение (по желанию)' : 'Пример (по желанию)'
+                  }
+                  hint={
+                    card.example_kind === 'note'
+                      ? 'Спрятано под кнопкой «Объяснение» — карточка раздвигается по нажатию'
+                      : 'Виден сразу под ответом, моноширинным шрифтом'
+                  }
                 >
                   <TextArea
                     rows={2}
@@ -234,6 +246,10 @@ export function Flashcards() {
                     onChange={(e) => patch(card.id, { example: e.target.value })}
                   />
                 </Field>
+                <ExampleKindField
+                  value={card.example_kind ?? 'code'}
+                  onChange={(example_kind) => patch(card.id, { example_kind })}
+                />
                 <Button
                   variant="danger"
                   onClick={() => {

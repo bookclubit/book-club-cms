@@ -8,6 +8,7 @@ import {
   TextArea,
   TextInput,
 } from '../components/ui'
+import { TelegramText } from '../components/TelegramText'
 import {
   approvePost,
   deletePost,
@@ -219,9 +220,9 @@ function PostCard({
             </p>
           )}
           <PosterBlock post={post} readOnly />
-          <p className="mt-3 whitespace-pre-line rounded-control bg-surface-2 p-3 text-sm text-ink-soft">
-            {post.text}
-          </p>
+          <div className="mt-3">
+            <TelegramText text={post.text} />
+          </div>
         </>
       ) : (
         <>
@@ -249,6 +250,11 @@ function PostCard({
               Разметка Telegram (HTML): <code>&lt;b&gt;</code>, <code>&lt;a href&gt;</code>.
               Ссылки и спикеров бот уже подставил.
             </p>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-1.5 text-[13px] font-medium">Так пост увидят в Telegram</p>
+            <TelegramText text={text} />
           </div>
 
           {chats.length > 1 && (
