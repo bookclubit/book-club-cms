@@ -1,5 +1,5 @@
 // Типы данных book-club-data. Схемы повторяют реальные файлы репозитория
-// (books/<folder>/meta.json, chapter.json, events/*.json, flashcards.json).
+// (books/<folder>/meta.json, chapter.json, events/*.json).
 
 export interface Author {
   /**
@@ -84,41 +84,6 @@ export interface Chapter {
   title: string
   topics: Topic[]
 }
-
-export type FlashcardDifficulty = 'easy' | 'medium' | 'hard'
-
-/**
- * Что лежит в поле `example`: пример кода (по умолчанию — виден сразу под
- * ответом, моноширинный) или пояснение — в приложении оно спрятано под
- * кнопкой «Объяснение». В файл пишется только `note`.
- */
-export type FlashcardExampleKind = 'code' | 'note'
-
-export interface FlashcardQA {
-  id: string
-  type: 'qa'
-  question: string
-  answer: string
-  chapter: string
-  difficulty: FlashcardDifficulty
-  /** Пример к ответу — необязателен: показывается под ответом. */
-  example?: string
-  example_kind?: FlashcardExampleKind
-}
-
-export interface FlashcardCommand {
-  id: string
-  type: 'command'
-  command: string
-  result: string
-  chapter: string
-  difficulty: FlashcardDifficulty
-  /** Пример вывода или использования команды — необязателен. */
-  example?: string
-  example_kind?: FlashcardExampleKind
-}
-
-export type Flashcard = FlashcardQA | FlashcardCommand
 
 // Доп. материал встречи (статья, конспект, репозиторий…).
 export interface EventMaterial {

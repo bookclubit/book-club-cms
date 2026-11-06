@@ -11,7 +11,6 @@ const groups: Array<{ title: string; links: Array<{ to: string; label: string; e
       { to: '/', label: 'Обзор', exact: true },
       { to: '/books', label: 'Книги' },
       { to: '/chapters', label: 'Главы и темы' },
-      { to: '/flashcards', label: 'Карточки' },
     ],
   },
   {

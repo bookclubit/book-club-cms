@@ -7,7 +7,6 @@ import type {
   Chapter,
   ClubSettings,
   ContentIndex,
-  Flashcard,
   SpeakersFile,
 } from '../types'
 import { GitHubClient } from './github'
@@ -38,13 +37,6 @@ export async function loadChapter(
   chapterSlug: string,
 ): Promise<Chapter | null> {
   return gh.getFileJson<Chapter>(`books/${folder}/chapters/${chapterSlug}/chapter.json`)
-}
-
-export async function loadFlashcards(
-  gh: GitHubClient,
-  folder: string,
-): Promise<Flashcard[]> {
-  return (await gh.getFileJson<Flashcard[]>(`books/${folder}/flashcards.json`)) ?? []
 }
 
 // Реестр контента — генерируемый index.json (в нём все главы, даже пустые).

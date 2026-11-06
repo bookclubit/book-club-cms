@@ -28,7 +28,3 @@ export function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
 
-// Номер карточки: 1 → "001".
-export function pad3(n: number): string {
-  return String(n).padStart(3, '0')
-}

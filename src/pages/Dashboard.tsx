@@ -14,7 +14,6 @@ const actions = [
     wide: true,
   },
   { to: '/events/new', title: 'Новая встреча', desc: 'Обсуждение главы или эфир докладов' },
-  { to: '/flashcards/new', title: 'Карточки', desc: 'ANKI-карточки для бота, id автоматически' },
   { to: '/books/new', title: 'Книга', desc: 'meta.json, обложка и авторы в WebP' },
   { to: '/speakers/new', title: 'Спикер', desc: 'Аватарка WebP и профиль' },
 ]
